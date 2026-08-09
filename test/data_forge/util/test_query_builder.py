@@ -1,40 +1,90 @@
 from datetime import datetime
 
-from data_forge.util.query_builder import build_select_query, latest_data_fetching_query, build_columns
+from data_forge.util.query_builder import select_all_query, select_all_after_watermark, build_columns
+from psycopg.sql import SQL, Identifier, Literal
 
 table_name = "test_table"
 columns = [{"name": "column_a"}, {"name": "column_b"}]
 source = "test_source"
 highest_mark = datetime.now()
 marking_column = "test_marking_column"
+run_datetime = datetime.now()
 
 
-def test_build_select_query():
-    assert ((build_select_query(table_name=table_name, columns=columns, source=source))
-            == "select column_a, column_b from test_table")
-    assert ((build_select_query(table_name=table_name, columns=columns, source=source, format_query=True))
-            == "select column_a, column_b from test_source.test_table")
+def test_select_all_query():
+    formatted_query = (
+        SQL("select {}, {}::timestamp as dw_run_timestamp from {}.{}")
+        .format(
+            "column_a, column_b"
+            , Literal(run_datetime)
+            , Identifier(source)
+            , Identifier(table_name)
+        )
+    ).as_bytes()
+
+    unformatted_query = (
+        SQL("select {}, {}::timestamp as dw_run_timestamp from {}")
+        .format(
+            "column_a, column_b"
+            , Literal(run_datetime)
+            , Identifier(table_name)
+        )
+    ).as_bytes()
+
+    assert ((select_all_query(table_name=table_name, columns=columns,
+                              source=source, run_datetime=run_datetime))
+            == unformatted_query)
+
+    assert ((select_all_query(table_name=table_name, columns=columns,
+                              source=source, run_datetime=run_datetime,
+                              format_query=True))
+            == formatted_query)
 
 
-def test_latest_data_fetching_query():
+def test_select_all_after_watermark():
+    formatted_query = (
+        SQL("select {}, {}::timestamp as dw_run_timestamp from {}.{} where {} > {}")
+        .format(
+            "column_a, column_b"
+            , Literal(run_datetime)
+            , Identifier(source)
+            , Identifier(table_name)
+            , Identifier(marking_column)
+            , Literal(highest_mark)
+        )
+    ).as_bytes()
+
+    unformatted_query = (
+        SQL("select {}, {}::timestamp as dw_run_timestamp from {} where {} > {}")
+        .format(
+            "column_a, column_b"
+            , Literal(run_datetime)
+            , Identifier(table_name)
+            , Identifier(marking_column)
+            , Literal(highest_mark)
+        )
+    ).as_bytes()
+
     assert (
-            latest_data_fetching_query(
-                table_name=table_name,
-                highest_mark=highest_mark,
-                columns=columns,
-                source=source,
-                marking_column=marking_column
-            ) == f"select column_a, column_b from test_table where test_marking_column > '{highest_mark}'"
-    )
-    assert (
-            latest_data_fetching_query(
+            select_all_after_watermark(
                 table_name=table_name,
                 highest_mark=highest_mark,
                 columns=columns,
                 source=source,
                 marking_column=marking_column,
+                run_datetime=run_datetime
+            ) == unformatted_query
+    )
+    assert (
+            select_all_after_watermark(
+                table_name=table_name,
+                highest_mark=highest_mark,
+                columns=columns,
+                source=source,
+                marking_column=marking_column,
+                run_datetime=run_datetime,
                 format_query=True
-            ) == f"select column_a, column_b from test_source.test_table where test_marking_column > '{highest_mark}'"
+            ) == formatted_query
     )
 
 

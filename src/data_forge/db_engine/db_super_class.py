@@ -13,7 +13,7 @@ class DbInterface(ABC):
     context: Context
 
     @abstractmethod
-    def extract_data(self, run_datetime: datetime, sql_query: str):
+    def extract_data(self, sql_query: bytes):
         pass
 
     @abstractmethod
@@ -38,7 +38,7 @@ class DWInterface(DbInterface):
         pass
 
     @abstractmethod
-    def insert_dataframe(self, data_stream, table_name: str, source: str):
+    def insert_many(self, batch: list[tuple], table_name: str, source: str):
         pass
 
     @abstractmethod

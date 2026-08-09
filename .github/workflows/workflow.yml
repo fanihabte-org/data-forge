@@ -11,31 +11,28 @@ permissions:
 
 jobs:
   build:
-
+    name: Build Prod
     runs-on: ubuntu-latest
 
     steps:
-    - name: Clone repo
-      uses: actions/checkout@v7
+      - name: Clone repo
+        uses: actions/checkout@v7
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v7
-      with:
-        python-version: "3.12.13"
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: "3.12.13"
+          cache-python: 'true'
+          enable-cache: true
 
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
 
-    - name: Install dependencies
-      run: uv sync --frozen
+      - name: Lint with flake8
+        run: |
+          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          uv run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Lint with flake8
-      run: |
-        uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
-
-    - name: Test with pytest
-      run: |
-        uv run pytest
+      - name: Test with pytest
+        run: |
+          uv run pytest

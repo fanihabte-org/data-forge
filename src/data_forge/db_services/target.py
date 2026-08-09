@@ -3,12 +3,13 @@ from datetime import datetime
 from pathlib import Path
 
 from data_forge.db_engine.db_super_class import DWInterface
+from data_forge.util.query_builder import insert_all_into
 
 
 @dataclass
 class TargetDW(DWInterface):
 
-    def extract_data(self, run_datetime: datetime, sql_query: str):
+    def extract_data(self, sql_query: bytes):
         pass
 
     def extract_after_watermark(self, table_name: str, run_datetime: datetime, watermark):
@@ -24,18 +25,20 @@ class TargetDW(DWInterface):
     def bulk_insert(self):
         pass
 
-    def insert_dataframe(self, data_stream, table_name: str, source: str):
+    def insert_many(self, batch: list[tuple], table_name: str, source: str):
         with self.db_engine.build_connection() as conn:
             print(f"EDI: built connection for: {self.db_engine.build_uri()}")
 
-            for batch_index, batch_df in enumerate(data_stream):
-                batch_df.write_database(
-                    table_name=f"{source}.{table_name}",
-                    connection=conn,
-                    engine='sqlalchemy',
-                    if_table_exists='append'
-                )
-                print(f"EDI: Wrote batch index of {batch_index} and {len(batch_df)} records")
+            sql_query = insert_all_into(
+                table_name=table_name,
+                columns=self.context.get_columns(table_name=table_name, source=source),
+                source=source,
+                format_query=True
+            )
+
+            conn.cursor().executemany(sql_query, batch)
+
+            print(f"EDI: Wrote batch successfully")
 
     def merge_latest_data(self):
         pass

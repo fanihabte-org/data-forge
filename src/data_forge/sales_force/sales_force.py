@@ -3,12 +3,11 @@ from pathlib import Path
 from time import sleep
 
 import requests
-import polars as pl
 
 from dataclasses import dataclass
 from data_forge.sales_force.auth import Auth
 from src.data_forge.context.context import Context
-from data_forge.util.query_builder import build_select_query
+from data_forge.util.query_builder import select_all_query
 
 
 @dataclass(frozen=True)
@@ -21,7 +20,7 @@ class SalesForce:
         token = self.auth.get_token()
         base_url = self.context.base_url
 
-        sql_query = build_select_query(
+        sql_query = select_all_query(
             table_name=table_name,
             columns=self.context.get_columns(table_name, self.source),
             source=self.source
@@ -41,7 +40,7 @@ class SalesForce:
         token = self.auth.get_token()
         base_url = self.context.base_url
 
-        sql_query = build_select_query(
+        sql_query = select_all_query(
             table_name=table_name,
             columns=self.context.get_columns(table_name, self.source),
             source=self.source

@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import text
-
 from data_forge.db_services.target import TargetDW
-import polars as pl
+from psycopg.rows import class_row
 
 
 @dataclass
@@ -17,15 +15,14 @@ class Watermark:
     dw_run_timestamp: datetime
 
     @staticmethod
-    def load(target_dw: TargetDW, table_name: str) -> dict:
-        sql_query = text(f"SELECT * FROM meta_data.watermarks WHERE table_name = '{table_name}'")
+    def load(target_dw: TargetDW) -> dict[str, "Watermark"]:
+        sql_query = "select * from meta_data.watermarks"
 
-        with target_dw.db_engine.build_connection() as conn:
-            df = pl.read_database(query=sql_query, connection=conn)
-            if df.is_empty():
-                print("No watermark")
-                return {"is_empty": True}
+        with target_dw.db_engine.build_connection().cursor(row_factory=class_row(Watermark)) as cur:
+            watermarks: list[Watermark] = cur.execute(sql_query).fetchall()
+            watermarks_dict = {}
 
-            df_row = df.row(0, named=True)
+            for watermark in watermarks:
+                watermarks_dict[watermark.table_name] = watermark
 
-            return {"is_empty": False, "wm_object": Watermark(**df_row)}
+            return watermarks_dict

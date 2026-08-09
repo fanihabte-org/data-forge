@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from data_forge.context.context import Context
 from data_forge.db_engine.engine import DBEngine
 from data_forge.db_services.target import TargetDW
 from data_forge.db_services.source import SourceDB
+from data_forge.logging.watermark import Watermark
 from data_forge.pipeline.pipeline import Pipeline
 from data_forge.sales_force.auth import Auth
 from data_forge.sales_force.sales_force import SalesForce
@@ -39,7 +41,9 @@ class Builder:
             edi=self.target_dw(db_name="edi"),
             erp=self.source_db(db_name="erp", source="erp"),
             ops=self.source_db(db_name="ops", source="ops"),
-            sales_force=self.salesforce()
+            sales_force=self.salesforce(),
+            watermarks=self.watermark(),
+            run_datetime=datetime.now()
         )
 
     def salesforce(self):
@@ -47,6 +51,9 @@ class Builder:
             auth=self.auth(),
             context=self.context()
         )
+
+    def watermark(self):
+        return Watermark.load(self.target_dw(db_name="edi"))
 
     def engine(self, db_name):
         return DBEngine.configure(self.context(), db_name)
