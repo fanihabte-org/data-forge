@@ -1,148 +1,63 @@
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from time import sleep
 
-import requests
-
-from dataclasses import dataclass
-from data_forge.sales_force.auth import Auth
+from data_forge.FileStorage.FileStorage import FileStorage
+from data_forge.db_engine.db_super_class import SourceInterface
+from data_forge.logging.watermark import Watermark
+from data_forge.sales_force.sf_request import SalesForceRequest
+from data_forge.sales_force.sf_soql_builder import select_all_after_watermark, select_all_query
 from src.data_forge.context.context import Context
-from data_forge.util.query_builder import select_all_query
 
-
-@dataclass(frozen=True)
-class SalesForce:
+@dataclass
+class SalesForce(SourceInterface):
     context: Context
-    auth: Auth
-    source: str = "crm"
+    source: str
+    file_storage: FileStorage
+    sf_request: SalesForceRequest
 
-    def _soql_request_kwargs(self, table_name: str) -> dict:
-        token = self.auth.get_token()
-        base_url = self.context.base_url
+    def bulk_export_all(self, run_datetime: datetime, table_name: str):
+        columns = self.context.get_columns(table_name=table_name, source=self.source)
+        soql_query = select_all_query(table_name=table_name, columns=columns)
 
-        sql_query = select_all_query(
-            table_name=table_name,
-            columns=self.context.get_columns(table_name, self.source),
-            source=self.source
-        )
+        self._request_bulk_download(soql_query=soql_query, table_name=table_name)
 
-        header = {"Authorization": f"Bearer {token}"}
-        endpoint = "/services/data/v60.0/queryAll"
-        params = {"q": sql_query}
+    def extract_after_watermark(self, run_datetime: datetime, watermark: Watermark):
+        columns = self.context.get_columns(table_name=watermark.table_name, source=self.source)
+        soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
+        soql_kwargs = self.sf_request.soql_request_kwargs(soql_query=soql_query)
+        json_response = self.sf_request.request_json(kwargs=soql_kwargs)
 
-        return {
-            "url": f"{base_url}{endpoint}",
-            "headers": header,
-            "params": params
-        }
+        return self._paginate_pages(json_response)
 
-    def _bulk_request_kwargs(self, table_name: str):
-        token = self.auth.get_token()
-        base_url = self.context.base_url
+    def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
+        columns = self.context.get_columns(table_name=watermark.table_name, source=self.source)
+        soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
 
-        sql_query = select_all_query(
-            table_name=table_name,
-            columns=self.context.get_columns(table_name, self.source),
-            source=self.source
-        )
+        self._request_bulk_download(table_name=watermark.table_name, soql_query=soql_query)
 
-        header = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        }
-        json_obj = {
-            "operation": "query",
-            "query": sql_query
-        }
-        endpoint = "/services/data/v60.0/jobs/query"
+    ## ------------------------------------------------------------------------------------- ##
 
-        return {
-            "url": f"{base_url}{endpoint}",
-            "headers": header,
-            "json": json_obj
-        }
+    def _request_bulk_download(self, soql_query: str, table_name: str):
+        blk_req_kwargs = self.sf_request.bulk_request_kwargs(soql_query=soql_query)
+        json_response = self.sf_request.post_request(kwargs=blk_req_kwargs)
 
-    def _bulk_export_job_state_kwargs(self, job_id: str):
-        token = self.auth.get_token()
-        base_url = self.context.base_url
+        self._process_download(job_id=json_response["id"], table_name=table_name)
 
-        header = {"Authorization": f"Bearer {token}"}
-        endpoint = f"/services/data/v60.0/jobs/query/{job_id}"
-
-        return {
-            "url": f"{base_url}{endpoint}",
-            "headers": header,
-        }
-
-    def _build_bulk_export_results_kwargs(self, job_id: str, file_number: int):
-        token = self.auth.get_token()
-        base_url = self.context.base_url
-
-        header = {"Authorization": f"Bearer {token}"}
-        endpoint = f"/services/data/v60.0/jobs/query/{job_id}"
-        url = f"{base_url}{endpoint}/results/?locator={file_number}"
-        if file_number == 0:
-            url = f"{base_url}{endpoint}/results"
-
-        return {
-            "url": url,
-            "headers": header,
-            "stream": True
-        }
-
-    def _build_pagination_kwargs(self, next_url: str) -> dict:
-        token = self.auth.get_token()
-        base_url = self.context.base_url
-        headers = {"Authorization": f"Bearer {token}"}
-
-        return {
-            "url": base_url + next_url,
-            "headers": headers
-        }
-
-    def _check_export_status(self, job_id) -> bool:
-        while True:
-            kwargs = self._bulk_export_job_state_kwargs(job_id=job_id)
-
-            response = _request_json(kwargs=kwargs)
-            job_status = response["state"]
-
-            if job_status == "JobComplete":
-                return True
-
-            sleep(30)
-
-    def fetch_data_from_table(self, table_name) -> None:
-        soql_kwargs = self._soql_request_kwargs(table_name=table_name)
-        json_response = _request_json(kwargs=soql_kwargs)
-
-        return self._process_response(json_response)
-
-    def fetch_all_data(self) -> None:
-        tables = self.context.tables
-
-        for table in tables:
-            self.fetch_data_from_table(table_name=table)
-
-    def request_bulk_export(self, table_name: str, folder_path: Path) -> None:
-        blk_req_kwargs = self._bulk_request_kwargs(table_name=table_name)
-        json_response = _post_request(kwargs=blk_req_kwargs)
-        job_id = json_response["id"]
-
+    def _process_download(self, job_id, table_name):
         is_export_done = self._check_export_status(job_id=job_id)
+
         if is_export_done:
             file_number = 0
-            download_dir = _setup_dir(folder_path=folder_path, job_id=job_id, table_name=table_name)
-
             while True:
-                download_kwargs = self._build_bulk_export_results_kwargs(job_id=job_id, file_number=file_number)
+                download_kwargs = self.sf_request.build_bulk_export_results_kwargs(job_id=job_id,
+                                                                                   file_number=file_number)
 
-                is_done = _download_bulk_export(
-                    download_dir=download_dir,
+                is_done = self._download_bulk_export(
                     kwargs=download_kwargs,
                     file_number=file_number,
                     table_name=table_name,
-                    chunk_size=self.context.chunk_size
+                    job_id=job_id
                 )
 
                 if is_done:
@@ -152,27 +67,25 @@ class SalesForce:
 
             print("Files has been downloaded!")
 
-    def _paginate_pages(self, json_response: dict) -> None:
-        data_records, api_call_count = json_response["records"], 1
-        records_count = len(data_records)
-
+    def _check_export_status(self, job_id) -> bool:
         while True:
-            # request next page
-            next_page = self._fetch_next_page_from(response=json_response)
-            next_page_records = next_page["records"]
-            no_next_page = next_page["done"]
+            kwargs = self.sf_request.bulk_export_job_state_kwargs(job_id=job_id)
 
+            response = self.sf_request.request_json(kwargs=kwargs)
+            job_status = response["state"]
+
+            if job_status == "JobComplete":
+                return True
+
+            sleep(30)
+
+    def _paginate_pages(self, json_response: dict):
+        data_records_list, records, api_call_count = [], json_response["records"], 1
+        records_count, is_done = 0, json_response["done"]
+
+        while not is_done:
             # add page to list
-            data_records.extend(next_page_records)
-
-            # if a divisible by 10 api calls are made process the data in the list
-            if api_call_count % 10 == 0:
-                self._write_to_db(data_records)
-                data_records.clear()
-
-            # increment count values
-            api_call_count += 1
-            records_count += len(next_page_records)
+            data_records_list.append(records)
 
             # check if we have 120 calls and sleep for a min with 10 seconds as buffer
             if api_call_count % 120 == 0:
@@ -181,80 +94,37 @@ class SalesForce:
                     f"Current cumulative api call count is {api_call_count}")
                 sleep(70)
 
-            # check if we have reached at the end of the page
-            if no_next_page:
-                print(f"\nSuccessfully completed fetching all {records_count} records!")
-                break
-
-            # check if user made more than 12 api calls
+            # check if user made more than 20 api calls
             if api_call_count >= 20:
-                print("\nWARNING: You have made more than 12 api calls, please consider using bulk export.")
-                break
+                print(
+                    "\nWARNING: You have made 20 api calls and still have remaining pages, please consider using bulk export.")
+
+            # fetch next page from the recent response
+            json_response = self._fetch_next_page_from(response=json_response)
+            records = json_response["records"]
+            is_not_done = json_response["done"]
+
+            # increment count values
+            api_call_count += 1
+            records_count += len(records)
+
+        print(f"\nSuccessfully completed fetching all {records_count} records!")
+        return data_records_list
 
     def _fetch_next_page_from(self, response: dict) -> dict:
         next_url = response["nextRecordsUrl"]
-        next_req_kwargs = self._build_pagination_kwargs(next_url=next_url)
-        return _request_json(kwargs=next_req_kwargs)
+        next_req_kwargs = self.sf_request.build_pagination_kwargs(next_url=next_url)
+        return self.sf_request.request_json(kwargs=next_req_kwargs)
 
-    def _process_response(self, json_response: dict):
-        # process first record
-        self._write_to_db(json_response["records"])
+    def _download_bulk_export(self, kwargs: dict, table_name: str, file_number: int, job_id) -> bool:
 
-        # is there are records then paginate
-        if not json_response["done"]:
-            self._paginate_pages(json_response)
+        with self.sf_request.request(kwargs=kwargs) as response:
+            if response.status_code == 400:
+                return True
 
-    def _write_to_db(self, all_records: list):
-        print(f"Loaded {len(all_records)} records")
+            if response.status_code == 429:
+                sleep(70)
 
+            self.file_storage.save_to_csv_file(response, table_name, file_number, job_id)
 
-def _request_json(kwargs):
-    response = requests.get(**kwargs)
-    response.raise_for_status()
-
-    return response.json()
-
-
-def _setup_dir(folder_path: Path, job_id: int, table_name: str) -> Path:
-    current_time = datetime.now()
-    today_dir = folder_path / current_time.strftime("%Y/%m/%d")
-    job_folder_path = today_dir / table_name / str(job_id)
-
-    job_folder_path.mkdir(parents=True, exist_ok=True)
-
-    return job_folder_path
-
-
-def _build_file_path(table_name: str, folder_path: Path, file_number: int) -> Path:
-    clean_table_name = table_name.lower().replace(" ", "_")
-    file_name = f"{clean_table_name}_{file_number}.csv"
-
-    return folder_path / file_name
-
-
-def _download_bulk_export(kwargs, download_dir: Path, table_name: str, file_number: int, chunk_size: int) -> bool:
-    file_path = _build_file_path(table_name=table_name, folder_path=download_dir, file_number=file_number)
-    with requests.get(**kwargs) as response:
-        if response.status_code == 400:
-            return True
-
-        if response.status_code == 429:
-            sleep(70)
-
-        with pl.read_csv(response.raw, chunksize=chunk_size) as reader:
-            for chunk_df in reader:
-                if file_path.exists():
-                    chunk_df.to_csv(file_path, mode="a")
-                else:
-                    chunk_df.to_csv(file_path)
-
-        print(f"Completed downloading file number {file_number}")
-
-    return False
-
-
-def _post_request(kwargs):
-    response = requests.post(**kwargs)
-    response.raise_for_status()
-
-    return response.json()
+        return False

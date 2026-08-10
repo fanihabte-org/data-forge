@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from data_forge.util.query_builder import select_all_query, select_all_after_watermark, build_columns
+from data_forge.db_engine.db_sql_builder import select_all_query, select_all_after_watermark, build_columns
 from psycopg.sql import SQL, Identifier, Literal
 
 table_name = "test_table"

@@ -1,46 +1,44 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 
-from data_forge.context.context import Context
-from data_forge.db_engine.engine import DBEngine
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from data_forge.context.context import Context
+    from data_forge.db_engine.engine import DBEngine
+    from data_forge.logging.watermark import Watermark
 
 
 @dataclass
-class DbInterface(ABC):
-    db_engine: DBEngine
+class SourceInterface(ABC):
     context: Context
+    source: str
 
     @abstractmethod
-    def extract_data(self, sql_query: bytes):
+    def extract_after_watermark(self, run_datetime: datetime, watermark):
         pass
 
     @abstractmethod
-    def extract_after_watermark(self, table_name: str, run_datetime: datetime, watermark):
+    def bulk_export_all(self, run_datetime: datetime, table_name: str):
         pass
 
     @abstractmethod
-    def bulk_export(self, to_folder: Path):
-        pass
-
-    @abstractmethod
-    def bulk_export_between(self, start_time: datetime, end_time: datetime, to_folder: Path,
-                            table_name: str | None = None):
+    def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
         pass
 
 
 @dataclass
-class DWInterface(DbInterface):
+class TargetInterface(SourceInterface):
+    db_engine: DBEngine
 
     @abstractmethod
-    def bulk_insert(self):
+    def bulk_insert_csv(self, table_name: str, source: str, download_dir: Path ,run_datetime: datetime):
         pass
 
     @abstractmethod
-    def insert_many(self, batch: list[tuple], table_name: str, source: str):
-        pass
-
-    @abstractmethod
-    def merge_latest_data(self):
+    def insert_batches(self, batches: list[tuple], table_name: str, source: str, watermark: Watermark):
         pass

@@ -21,14 +21,28 @@ class Context:
         manifest = _read_resource_file(file_path=file_path)
         return cls(**manifest)
 
-    def get_columns(self, table_name: str, source: str) -> list[dict]:
-        return self.tables[source][table_name]
+    def get_columns(self, table_name: str, source: str) -> list[str]:
+        columns_details = self.tables[source][table_name]
+        column_names = []
+
+        for column in columns_details:
+            column_names.append(column["name"])
+
+        return column_names
 
     def get_tables(self, source: str) -> list[str]:
         return list(self.tables[source].keys())
 
     def get_marking_column(self, source: str, table_name: str) -> str:
         return self.marking_column[source][table_name]
+
+    def get_column_cast(self, table: str, source) -> dict:
+        columns = self.tables[source][table]
+        column_cast = {}
+        for column in columns:
+            column_cast[column["name"]] = column["type"]
+
+        return column_cast
 
 
 def _read_resource_file(file_path: Path) -> dict:

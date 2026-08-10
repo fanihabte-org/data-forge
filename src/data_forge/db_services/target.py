@@ -2,43 +2,69 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from data_forge.db_engine.db_super_class import DWInterface
-from data_forge.util.query_builder import insert_all_into
+from data_forge.db_engine.db_super_class import TargetInterface
+from data_forge.logging.watermark import Watermark
+from data_forge.db_engine.db_sql_builder import insert_all_into, copy_from_csv
+import duckdb
 
 
 @dataclass
-class TargetDW(DWInterface):
+class TargetDW(TargetInterface):
 
-    def extract_data(self, sql_query: bytes):
+    def extract_after_watermark(self, run_datetime: datetime, watermark):
         pass
 
-    def extract_after_watermark(self, table_name: str, run_datetime: datetime, watermark):
+    def bulk_export_all(self, run_datetime: datetime, table_name: str):
         pass
 
-    def bulk_export(self, to_folder: Path):
+    def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
         pass
 
-    def bulk_export_between(self, start_time: datetime, end_time: datetime, to_folder: Path,
-                            table_name: str | None = None):
-        pass
+    def bulk_insert_csv(self, table_name: str, source: str, download_dir: Path ,run_datetime: datetime):
+        column_cast = self.context.get_column_cast(table=table_name, source=source)
+        columns = self.context.get_columns(table_name=table_name, source=source)
 
-    def bulk_insert(self):
-        pass
+        with duckdb.connect() as conn:
+            conn.execute("Install postgres;")
+            conn.execute("Load postgres;")
+            conn.execute(f"Attach '{self.db_engine.build_uri()}' as pg (TYPE postgres);")
+            for file in download_dir.iterdir():
+                sql_query = copy_from_csv(table_name=table_name,
+                                          columns=columns,
+                                          columns_cast=column_cast,
+                                          source=source,
+                                          run_datetime=run_datetime,
+                                          file_path=file
+                                          )
+                print(sql_query)
+                conn.execute(sql_query)
 
-    def insert_many(self, batch: list[tuple], table_name: str, source: str):
+    def insert_batches(self, batches: list[tuple], table_name: str, source: str, watermark: Watermark):
         with self.db_engine.build_connection() as conn:
             print(f"EDI: built connection for: {self.db_engine.build_uri()}")
 
+            columns = self.context.get_columns(table_name=table_name, source=source)
             sql_query = insert_all_into(
                 table_name=table_name,
-                columns=self.context.get_columns(table_name=table_name, source=source),
+                columns=columns,
                 source=source,
                 format_query=True
             )
 
-            conn.cursor().executemany(sql_query, batch)
+            cur = conn.cursor()
+            total_rows = 0
+            for batch in batches:
+                cur.executemany(sql_query, batch)
+                self.update_watermark(watermark=watermark, batch=batch)
+                total_rows += 1
 
-            print(f"EDI: Wrote batch successfully")
+                print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")
 
-    def merge_latest_data(self):
-        pass
+    def update_watermark(self, watermark: Watermark, batch: tuple):
+        mc_index = (self.context
+                    .get_columns(table_name=watermark.table_name
+                                 , source=self.source
+                                 ).index(watermark.marking_column)
+                    )
+        batch_highest_watermark = batch[-1][mc_index].isoformat()
+        watermark.upsert(target_dw=self, new_watermark=batch_highest_watermark)
