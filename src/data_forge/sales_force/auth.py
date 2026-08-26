@@ -1,8 +1,6 @@
 import requests
 from dataclasses import dataclass
 
-from data_forge.context.context import Context
-
 
 @dataclass(frozen=True)
 class Auth:

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from data_forge.context.context import Catalog
 from data_forge.db_engine.db_super_class import SourceInterface
 from data_forge.db_engine.engine import DBEngine
 from data_forge.logging.watermark import Watermark
@@ -10,6 +11,7 @@ from data_forge.db_engine.db_sql_builder import select_all_after_watermark
 @dataclass
 class SourceDB(SourceInterface):
     db_engine: DBEngine
+    catalog: Catalog
 
     def extract_after_watermark(self, run_datetime: datetime, watermark: Watermark):
         chunk_size = 20_000
@@ -17,17 +19,17 @@ class SourceDB(SourceInterface):
         sql_query = select_all_after_watermark(
             table_name=watermark.table_name,
             highest_mark=watermark.highest_watermark,
-            columns=self.context.get_columns(table_name=watermark.table_name, source=self.source),
+            columns=self.catalog.tables[watermark.table_name].column_names,
             marking_column=watermark.marking_column,
-            source=self.source,
+            source=self.catalog.source_name,
             run_datetime=run_datetime,
             format_query=True
         )
 
-        print(f"{self.source}: built query: {sql_query.decode()}")
+        print(f"{self.catalog.source_name}: built query: {sql_query.decode()}")
 
         with self.db_engine.build_connection() as conn:
-            print(f"{self.source}: built connection")
+            print(f"{self.catalog.source_name}: built connection")
 
             cur = conn.cursor(name="stream_cursor")
             cur.execute(sql_query)
@@ -41,13 +43,13 @@ class SourceDB(SourceInterface):
                 yield rows
                 total_rows += len(rows)
 
-            print(f"{self.source}: read {total_rows} records")
+            print(f"{self.catalog.source_name}: read {total_rows} records")
 
     def bulk_export_all(self, run_datetime: datetime, table_name: str):
         sql_query = select_all_after_watermark(
             table_name=table_name,
-            columns=self.context.get_columns(table_name=table_name, source=self.source),
-            source=self.source,
+            columns=self.catalog.tables[table_name].columns,
+            source=self.catalog.source_name,
             run_datetime=run_datetime,
             format_query=True
         )
@@ -57,10 +59,10 @@ class SourceDB(SourceInterface):
     def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
         sql_query = select_all_after_watermark(
             table_name=watermark.table_name,
-            highest_mark=watermark.high_watermark,
-            columns=self.context.get_columns(table_name=watermark.table_name, source=self.source),
+            highest_mark=watermark.highest_watermark,
+            columns=self.catalog.tables[watermark.table_name].column_names,
             marking_column=watermark.marking_column,
-            source=self.source,
+            source=self.catalog.source_name,
             run_datetime=run_datetime,
             format_query=True
         )

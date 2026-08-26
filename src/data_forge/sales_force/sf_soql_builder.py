@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from data_forge.logging.watermark import Watermark
 from data_forge.util.util import build_columns
+from data_forge.logging.watermark import Watermark
 
 
 def select_all_query(table_name: str, columns: list[str]) -> str:

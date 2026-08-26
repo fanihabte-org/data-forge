@@ -1,14 +1,11 @@
-from dataclasses import dataclass
-
 import requests
 
-from data_forge.context.context import Context
+from dataclasses import dataclass
 from data_forge.sales_force.auth import Auth
 
 
 @dataclass
 class SalesForceRequest:
-    context: Context
     auth: Auth
 
     @staticmethod
@@ -32,7 +29,7 @@ class SalesForceRequest:
 
     def soql_request_kwargs(self, soql_query: str) -> dict:
         token = self.auth.get_token()
-        base_url = self.context.base_url
+        base_url = self.auth.base_url
 
         header = {"Authorization": f"Bearer {token}"}
         endpoint = "/services/data/v60.0/queryAll"
@@ -46,7 +43,7 @@ class SalesForceRequest:
 
     def bulk_request_kwargs(self, soql_query: str):
         token = self.auth.get_token()
-        base_url = self.context.base_url
+        base_url = self.auth.base_url
 
         header = {
             "Authorization": f"Bearer {token}",
@@ -66,7 +63,7 @@ class SalesForceRequest:
 
     def bulk_export_job_state_kwargs(self, job_id: str):
         token = self.auth.get_token()
-        base_url = self.context.base_url
+        base_url = self.auth.base_url
 
         header = {"Authorization": f"Bearer {token}"}
         endpoint = f"/services/data/v60.0/jobs/query/{job_id}"
@@ -78,7 +75,7 @@ class SalesForceRequest:
 
     def build_bulk_export_results_kwargs(self, job_id: str, file_number: int):
         token = self.auth.get_token()
-        base_url = self.context.base_url
+        base_url = self.auth.base_url
 
         header = {"Authorization": f"Bearer {token}"}
         endpoint = f"/services/data/v60.0/jobs/query/{job_id}"
@@ -94,7 +91,7 @@ class SalesForceRequest:
 
     def build_pagination_kwargs(self, next_url: str) -> dict:
         token = self.auth.get_token()
-        base_url = self.context.base_url
+        base_url = self.auth.base_url
         headers = {"Authorization": f"Bearer {token}"}
 
         return {

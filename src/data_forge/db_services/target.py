@@ -20,9 +20,7 @@ class TargetDW(TargetInterface):
     def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
         pass
 
-    def bulk_insert_csv(self, table_name: str, source: str, download_dir: Path ,run_datetime: datetime):
-        column_cast = self.context.get_column_cast(table=table_name, source=source)
-        columns = self.context.get_columns(table_name=table_name, source=source)
+    def bulk_insert_csv(self, table_name: str, source: str, download_dir: Path, run_datetime: datetime, columns: list):
 
         with duckdb.connect() as conn:
             conn.execute("Install postgres;")
@@ -38,11 +36,11 @@ class TargetDW(TargetInterface):
                 print(sql_query)
                 conn.execute(sql_query)
 
-    def insert_batches(self, batches: list[tuple], table_name: str, source: str, watermark: Watermark):
+    def insert_batches(self, batches: list[tuple], table_name: str, source: str, run_datetime: datetime, watermark: Watermark, columns: list ):
         with self.db_engine.build_connection() as conn:
             print(f"EDI: built connection for: {self.db_engine.build_uri()}")
 
-            columns = self.context.get_columns(table_name=table_name, source=source) + ["dw_run_timestamp"]
+            columns += ["dw_run_timestamp"]
             sql_query = insert_all_into(
                 table_name=table_name,
                 columns=columns,
@@ -53,19 +51,14 @@ class TargetDW(TargetInterface):
             cur = conn.cursor()
             total_rows = 0
             for batch in batches:
-
                 cur.executemany(sql_query, batch)
-                self.update_watermark(watermark=watermark, batch=batch)
+                self.update_watermark(watermark=watermark, batch=batch, columns= columns, run_datetime=run_datetime)
                 total_rows += 1
 
                 print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")
 
-    def update_watermark(self, watermark: Watermark, batch: tuple):
-        mc_index = (self.context
-                        .get_columns(
-                            table_name=watermark.table_name
-                            , source=watermark.schema_name
-                        ).index(watermark.marking_column)
-                    )
+    def update_watermark(self, columns: list, watermark: Watermark, batch: tuple, run_datetime: datetime):
+        mc_index = columns.index(watermark.marking_column)
+
         batch_highest_watermark = batch[-1][mc_index].isoformat()
-        watermark.upsert(target_dw=self, new_watermark=batch_highest_watermark)
+        watermark.upsert(target_dw=self, new_watermark=batch_highest_watermark, run_datetime=run_datetime)
