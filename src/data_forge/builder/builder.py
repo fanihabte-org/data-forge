@@ -1,28 +1,37 @@
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
-from data_forge.FileStorage.FileStorage import FileStorage
+from datetime import datetime
+from dataclasses import dataclass
+from data_forge.sales_force.auth import Auth
+
 from data_forge.context.context import Context
 from data_forge.db_engine.engine import DBEngine
+from data_forge.pipeline.pipeline import Pipeline
+
 from data_forge.db_services.target import TargetDW
 from data_forge.db_services.source import SourceDB
 from data_forge.logging.watermark import Watermark
-from data_forge.pipeline.pipeline import Pipeline
-from data_forge.sales_force.auth import Auth
+
 from data_forge.sales_force.sales_force import SalesForce
+from data_forge.FileStorage.FileStorage import FileStorage
 from data_forge.sales_force.sf_request import SalesForceRequest
 
 
 @dataclass
 class Builder:
-    config_path: Path
+    config_folder_path: Path
 
     def context(self):
-        return Context.load_context_from(file_path=self.config_path)
+        return Context.load_context(folder_path=self.config_folder_path)
 
     def auth(self):
-        return Auth(context=self.context())
+        salesforce_config = self.context().salesforce_config
+        return Auth(
+            client_id=salesforce_config.client_id,
+            client_secret=salesforce_config.client_secret,
+            grant_type=salesforce_config.grant_type,
+            base_url=salesforce_config.base_url
+        )
 
     def source_db(self, db_name: str, source: str):
         return SourceDB(

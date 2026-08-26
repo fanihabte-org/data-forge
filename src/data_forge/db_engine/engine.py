@@ -1,8 +1,6 @@
 from dataclasses import dataclass, asdict
 from psycopg import Connection, connect
 
-from data_forge.context.context import Context
-
 
 @dataclass
 class DBEngine:
@@ -19,7 +17,3 @@ class DBEngine:
         # database uri syntax
         # dialect://username:password@host:port/database
         return f"user={self.user} password={self.password} host={self.host} port={self.port} dbname={self.dbname}"
-
-    @classmethod
-    def configure(cls, context: Context, db_name: str) -> "DBEngine":
-        return cls(**context.databases[db_name])

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from psycopg import Cursor
 from psycopg.rows import class_row
-from psycopg.sql import SQL
+from data_forge.db_engine.db_sql_builder import upsert_watermark
 
 from typing import TYPE_CHECKING
 
@@ -43,16 +43,11 @@ class Watermark:
             return self
 
         self.highest_watermark = new_wm_datetime
-        query = SQL(
-            "insert into meta_data.watermarks "
-            "(source_system, table_name, schema_name, marking_column, highest_watermark, dw_run_timestamp) "
-            "values (%(source_system)s, %(table_name)s, %(schema_name)s, %(marking_column)s, %(highest_watermark)s, %(dw_run_timestamp)s) "
-            "on CONFLICT (table_name) do update set "
-            "highest_watermark = GREATEST(meta_data.watermarks.highest_watermark, EXCLUDED.highest_watermark)"
-        )
 
-        with (target_dw.db_engine
-                      .build_connection()
-                      .cursor(row_factory=class_row(Watermark)) as cur):
-            cur.execute(query, asdict(self))
+        query = upsert_watermark(columns=self.get_columns(), table_name="watermarks", schema="meta_data", conflict_column = "table_name")
+        with target_dw.db_engine.build_connection() as conn:
+            with conn.cursor(row_factory=class_row(Watermark)) as cur:
+                cur.execute(query, tuple(asdict(self).values()))
         return self
+    def get_columns(self):
+        return [f.name for f in fields(self)]

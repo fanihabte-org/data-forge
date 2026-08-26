@@ -31,7 +31,6 @@ class TargetDW(TargetInterface):
             for file in download_dir.iterdir():
                 sql_query = copy_from_csv(table_name=table_name,
                                           columns=columns,
-                                          columns_cast=column_cast,
                                           source=source,
                                           run_datetime=run_datetime,
                                           file_path=file
@@ -43,17 +42,18 @@ class TargetDW(TargetInterface):
         with self.db_engine.build_connection() as conn:
             print(f"EDI: built connection for: {self.db_engine.build_uri()}")
 
-            columns = self.context.get_columns(table_name=table_name, source=source)
+            columns = self.context.get_columns(table_name=table_name, source=source) + ["dw_run_timestamp"]
             sql_query = insert_all_into(
                 table_name=table_name,
                 columns=columns,
                 source=source,
                 format_query=True
             )
-
+            print(sql_query)
             cur = conn.cursor()
             total_rows = 0
             for batch in batches:
+
                 cur.executemany(sql_query, batch)
                 self.update_watermark(watermark=watermark, batch=batch)
                 total_rows += 1
@@ -62,9 +62,10 @@ class TargetDW(TargetInterface):
 
     def update_watermark(self, watermark: Watermark, batch: tuple):
         mc_index = (self.context
-                    .get_columns(table_name=watermark.table_name
-                                 , source=self.source
-                                 ).index(watermark.marking_column)
+                        .get_columns(
+                            table_name=watermark.table_name
+                            , source=watermark.schema_name
+                        ).index(watermark.marking_column)
                     )
         batch_highest_watermark = batch[-1][mc_index].isoformat()
         watermark.upsert(target_dw=self, new_watermark=batch_highest_watermark)

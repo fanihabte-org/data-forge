@@ -6,15 +6,18 @@ from data_forge.context.context import Context
 
 @dataclass(frozen=True)
 class Auth:
-    context: Context
+    client_id: str
+    client_secret: str
+    grant_type: str
+    base_url: str
 
     def get_token(self):
         post_kwargs = {
-            "url": f"{self.context.base_url}/services/oauth2/token",
+            "url": f"{self.base_url}/services/oauth2/token",
             "data": {
-                "client_id": self.context.client_id,
-                "client_secret": self.context.client_secret,
-                "grant_type": self.context.grant_type,
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "grant_type": self.grant_type,
             }
         }
 
