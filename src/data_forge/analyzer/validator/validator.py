@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from psycopg.rows import class_row
-from data_forge.pipeline.validator_query_builder import table_information_query, table_columns_query
+from data_forge.analyzer.validator.validator_query_builder import table_information_query, table_columns_query
 from data_forge.db_engine.engine import DBEngine
 from data_forge.db_services.source import SourceDB
 from data_forge.db_services.target import TargetDW

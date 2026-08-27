@@ -3,7 +3,6 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
 
-from data_forge.pipeline.validator import Validator
 from data_forge.sales_force.auth import Auth
 
 from data_forge.context.context import Context
@@ -76,8 +75,8 @@ class Builder:
 
     def watermark(self):
         pipeline_config = self.context().pipeline_config
-        return Watermark.load(
-                self.target_dw(db_name="erae"),
+        return Watermark.fetch_watermarks(
+                self.target_dw(db_name="erae").db_engine,
                 wm_table_schema=pipeline_config.watermark_table_schema,
                 wm_table_name=pipeline_config.watermark_table_name
         )

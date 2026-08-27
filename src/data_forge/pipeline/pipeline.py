@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 
 from typing import TYPE_CHECKING
 
-from data_forge.pipeline.validator import Validator
+from data_forge.analyzer.validator.validator import Validator
+from data_forge.analyzer.planner.planner import Planner
 
 if TYPE_CHECKING:
     from data_forge.db_services.source import SourceDB
     from data_forge.db_services.target import TargetDW
-    from data_forge.errors.errors import WatermarkNotAvailable
     from data_forge.logging.watermark import Watermark
     from data_forge.sales_force.sales_force import SalesForce
 
@@ -27,16 +25,18 @@ class Pipeline:
     run_datetime: datetime
 
     def run_bulk_salesforce_export(self):
-        tables = self.sales_force.catalog.tables
+        self.validate_pipeline()
 
+        tables = self.sales_force.catalog.tables
         for table in tables.values():
             print(f"Started work on table {table}")
             self.sales_force.bulk_export_all(table_name=table.name, run_datetime=self.run_datetime)
             print(f"Completed work on table <<{table}>>\n")
 
     def run_incremental_salesforce_pipeline(self):
-        tables = self.sales_force.catalog.tables
+        self.validate_pipeline()
 
+        tables = self.sales_force.catalog.tables
         for table in tables.values():
             print(f"Started work on table {table}")
             watermark_response = self._check_watermark(table.name)
@@ -54,7 +54,6 @@ class Pipeline:
 
     def run_incremental_daily_pipeline(self):
         db_sources = [self.erp, self.ops]
-
         for db_source in db_sources:
             self._read_write_tables(source_db=db_source)
 
@@ -65,32 +64,31 @@ class Pipeline:
         self._read_write_tables(source_db=self.ops)
 
     def _read_write_tables(self, source_db: SourceDB):
+        self.validate_pipeline()
         tables = source_db.catalog.tables
-
         for table in tables.values():
             print(f"Started work on table {table}")
-            watermark_response = self._check_watermark(table.name)
             batches = source_db.extract_after_watermark(
                 run_datetime=self.run_datetime,
-                watermark=watermark_response
+                watermark=self.watermarks[table.name]
             )
 
             self.edi.insert_batches(
                 batches=batches,
                 table_name=table.name,
                 source=source_db.catalog.source_name,
-                watermark=watermark_response,
+                watermark=self.watermarks[table.name],
                 columns=table.column_names,
                 run_datetime=self.run_datetime
             )
 
             print(f"Completed work on table <<{table}>>\n")
 
-    def _check_watermark(self, table_name: str) -> Watermark:
-        if watermark := self.watermarks.get(table_name):
-            return watermark
-
-        raise WatermarkNotAvailable(table=table_name)
+    # def _check_watermark(self, table_name: str) -> Watermark:
+    #     if watermark := self.watermarks.get(table_name):
+    #         return watermark
+    #
+    #     raise WatermarkNotAvailable(table=table_name)
 
     def validate_pipeline(self):
         validator = Validator(
@@ -99,3 +97,19 @@ class Pipeline:
             salesforce=self.sales_force
         )
         print(validator.run_checks())
+
+    def plan_pipeline_run(self, source_db: SourceDB):
+        planner = Planner(
+            source_db=source_db,
+            target_dw=self.edi,
+            watermarks=self.watermarks,
+            run_datetime=self.run_datetime
+        )
+        analysis = planner.build_plan()
+        print("PIPELINE ANALYSIS")
+
+        for table_name, plan in analysis.items():
+            print("\nTable: ", table_name)
+            print("Highest Watermark:", plan.watermark_check.object.highest_watermark)
+            print("Ingress Volume:", plan.ingress_volume.egress_volume)
+

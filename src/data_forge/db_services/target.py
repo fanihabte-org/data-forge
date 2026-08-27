@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from psycopg import Connection
+
 from data_forge.db_engine.db_super_class import TargetInterface
 from data_forge.logging.watermark import Watermark
 from data_forge.db_engine.db_sql_builder import insert_all_into, copy_from_csv
@@ -52,13 +54,14 @@ class TargetDW(TargetInterface):
             total_rows = 0
             for batch in batches:
                 cur.executemany(sql_query, batch)
-                self.update_watermark(watermark=watermark, batch=batch, columns= columns, run_datetime=run_datetime)
+                self.update_watermark(conn=conn, watermark=watermark, batch=batch, columns= columns, run_datetime=run_datetime)
                 total_rows += 1
 
                 print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")
 
-    def update_watermark(self, columns: list, watermark: Watermark, batch: tuple, run_datetime: datetime):
+    @staticmethod
+    def update_watermark(columns: list, watermark: Watermark, batch: tuple, run_datetime: datetime, conn: Connection):
         mc_index = columns.index(watermark.marking_column)
 
         batch_highest_watermark = batch[-1][mc_index].isoformat()
-        watermark.upsert(target_dw=self, new_watermark=batch_highest_watermark, run_datetime=run_datetime)
+        watermark.upsert(conn=conn, new_watermark=batch_highest_watermark, run_datetime=run_datetime)

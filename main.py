@@ -15,5 +15,5 @@ if __name__ == "__main__":
     context = builder.context()
     pipeline = builder.pipeline()
 
-    # pipeline.run_incremental_salesforce_pipeline()
-    pipeline.validate_pipeline()
+    pipeline.plan_pipeline_run(source_db=pipeline.ops)
+    pipeline.plan_pipeline_run(source_db=pipeline.erp)
