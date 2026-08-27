@@ -2,6 +2,8 @@ from pathlib import Path
 
 from datetime import datetime
 from dataclasses import dataclass
+
+from data_forge.pipeline.validator import Validator
 from data_forge.sales_force.auth import Auth
 
 from data_forge.context.context import Context

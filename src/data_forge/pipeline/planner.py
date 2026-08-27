@@ -1,4 +1,7 @@
+from abc import ABC
 from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from data_forge.context.context import Context
 from data_forge.db_engine.db_super_class import SourceInterface
@@ -12,10 +15,7 @@ from data_forge.sales_force.sales_force import SalesForce
 from data_forge.sales_force.sf_soql_builder import check_records, execution_planner
 
 
-class ExecutionType(Enum):
-    BULK = 1
-    INCREMENTAL = 2
-    SKIP = 3
+
 
 
 @dataclass

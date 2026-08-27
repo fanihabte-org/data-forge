@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from data_forge.context.context import Catalog
     from data_forge.db_engine.engine import DBEngine
     from data_forge.logging.watermark import Watermark
 

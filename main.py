@@ -16,4 +16,4 @@ if __name__ == "__main__":
     pipeline = builder.pipeline()
 
     # pipeline.run_incremental_salesforce_pipeline()
-    pipeline.run_incremental_daily_pipeline()
+    pipeline.validate_pipeline()

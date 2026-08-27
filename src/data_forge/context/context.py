@@ -1,11 +1,13 @@
 import yaml
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from dataclasses import dataclass
 from data_forge.db_engine.engine import DBEngine
 
 
 class Column(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
     type: str
     nullability: str

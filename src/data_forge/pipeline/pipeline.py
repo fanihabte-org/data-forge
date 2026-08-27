@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from typing import TYPE_CHECKING
+
+from data_forge.pipeline.validator import Validator
 
 if TYPE_CHECKING:
     from data_forge.db_services.source import SourceDB
@@ -88,3 +91,11 @@ class Pipeline:
             return watermark
 
         raise WatermarkNotAvailable(table=table_name)
+
+    def validate_pipeline(self):
+        validator = Validator(
+            source_db=self.ops,
+            target_dw=self.edi,
+            salesforce=self.sales_force
+        )
+        print(validator.run_checks())
