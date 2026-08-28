@@ -34,8 +34,7 @@ class SourceDB(SourceInterface):
 
     def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         with self.db_engine.build_connection() as conn:
-            cur = conn.cursor()
-            with cur.copy(sql_query) as copy:
+            with conn.cursor().copy(sql_query) as copy:
                 for chunk in copy:
                     yield chunk
 

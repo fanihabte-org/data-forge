@@ -19,14 +19,17 @@ class TargetDW(TargetInterface):
     def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
-    def bulk_insert_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
+    def bulk_insert_from_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
         with duckdb.connect() as conn:
             conn.execute("Install postgres;")
             conn.execute("Load postgres;")
             conn.execute(f"Attach '{self.db_engine.build_uri()}' as pg (TYPE postgres);")
 
-    def bulk_insert_from_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
-        pass
+    def bulk_insert_batches(self, sql_query: bytes, batches: list[tuple]):
+        with self.db_engine.build_connection() as conn:
+            with conn.cursor().copy(sql_query) as copy:
+                 for row in batches:
+                     copy.write_row(row)
 
     def insert_batches(self,
                        batches: list[tuple],

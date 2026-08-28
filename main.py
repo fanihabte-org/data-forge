@@ -9,5 +9,6 @@ if __name__ == "__main__":
     context = builder.context()
     pipeline = builder.pipeline()
 
+    pipeline.validate(source_db=pipeline.ops)
     pipeline.analyze(source_db=pipeline.ops)
     pipeline.explain_plan(source_db=pipeline.ops)
