@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from data_forge.sales_force.auth import Auth
 
@@ -10,16 +10,18 @@ from data_forge.pipeline.pipeline import Pipeline
 
 from data_forge.db_services.target import TargetDW
 from data_forge.db_services.source import SourceDB
-from data_forge.logging.watermark import Watermark
+from data_forge.logging.watermark import WatermarkRepository
 
 from data_forge.sales_force.sales_force import SalesForce
 from data_forge.FileStorage.FileStorage import FileStorage
 from data_forge.sales_force.sf_request import SalesForceRequest
+from data_forge.analyzer.planner.planner import Planner
 
 
 @dataclass
 class Builder:
     config_folder_path: Path
+    run_datetime: datetime = field(default_factory=datetime.now)
 
     def context(self):
         return Context.load_context(folder_path=self.config_folder_path)
@@ -50,8 +52,12 @@ class Builder:
             erp=self.source_db(db_name="erp", source="erp"),
             ops=self.source_db(db_name="ops", source="ops"),
             sales_force=self.salesforce(),
-            watermarks=self.watermark(),
-            run_datetime=datetime.now()
+            watermarks=self.watermark_repository().fetch_watermarks(
+                conn=self.target_dw(db_name="erae").db_engine.build_connection()
+            ),
+            run_datetime=self.run_datetime,
+            pipeline_config=self.context().pipeline_config,
+            watermark_repository=self.watermark_repository()
         )
 
     def salesforce(self):
@@ -73,12 +79,11 @@ class Builder:
             auth=self.auth()
         )
 
-    def watermark(self):
+    def watermark_repository(self):
         pipeline_config = self.context().pipeline_config
-        return Watermark.fetch_watermarks(
-                self.target_dw(db_name="erae").db_engine,
-                wm_table_schema=pipeline_config.watermark_table_schema,
-                wm_table_name=pipeline_config.watermark_table_name
+        return WatermarkRepository(
+            pipeline_config=pipeline_config,
+            run_datetime=self.run_datetime
         )
 
     def engine(self, db_name):

@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
 from time import sleep
 
 from data_forge.FileStorage.FileStorage import FileStorage
-from data_forge.context.context import Catalog
+from data_forge.context.context import Catalog, PipelineConfig
 from data_forge.db_engine.db_super_class import SourceInterface
-from data_forge.logging.watermark import Watermark
 from data_forge.sales_force.sf_request import SalesForceRequest
 from data_forge.sales_force.sf_soql_builder import select_all_after_watermark, select_all_query
 
@@ -15,25 +13,27 @@ class SalesForce(SourceInterface):
     file_storage: FileStorage
     sf_request: SalesForceRequest
 
-    def bulk_export_all(self, run_datetime: datetime, table_name: str):
-        columns = self.catalog.tables[table_name].column_names
-        soql_query = select_all_query(table_name=table_name, columns=columns)
+    def extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
+        # soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
+        # soql_kwargs = self.sf_request.soql_request_kwargs(soql_query=soql_query)
+        # json_response = self.sf_request.request_json(kwargs=soql_kwargs)
+        #
+        # return self._paginate_pages(json_response)
+        ...
 
-        self._request_bulk_download(soql_query=soql_query, table_name=table_name)
+    def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
+        # columns = self.catalog.tables[watermark.table_name].column_names
+        # soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
+        #
+        # self._request_bulk_download(table_name=watermark.table_name, soql_query=soql_query)
+        ...
 
-    def extract_after_watermark(self, run_datetime: datetime, watermark: Watermark):
-        columns = self.catalog.tables[watermark.table_name].column_names
-        soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
-        soql_kwargs = self.sf_request.soql_request_kwargs(soql_query=soql_query)
-        json_response = self.sf_request.request_json(kwargs=soql_kwargs)
-
-        return self._paginate_pages(json_response)
-
-    def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
-        columns = self.catalog.tables[watermark.table_name].column_names
-        soql_query = select_all_after_watermark(watermark=watermark, columns=columns)
-
-        self._request_bulk_download(table_name=watermark.table_name, soql_query=soql_query)
+    def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
+        # columns = self.catalog.tables[table_name].column_names
+        # soql_query = select_all_query(table_name=table_name, columns=columns)
+        #
+        # self._request_bulk_download(soql_query=soql_query, table_name=table_name)
+        ...
 
     ## ------------------------------------------------------------------------------------- ##
 

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, fields
 from datetime import datetime
-
 from psycopg import Connection
 from psycopg.rows import class_row
-from data_forge.db_engine.db_sql_builder import upsert_watermark, select_watermark_details, build_select_query_dwt
+from dataclasses import dataclass, asdict, fields
+from data_forge.context.context import Table, PipelineConfig
+from psycopg.sql import Identifier, SQL, Placeholder, Literal
 
-from data_forge.db_engine.engine import DBEngine
 
 DEFAULT_EPOCH = datetime(1970, 1, 1, 0, 0, 0)
 
@@ -25,94 +24,132 @@ class Watermark:
     def get_columns(cls) -> list[str]:
         return list(f.name for f in fields(cls))
 
-    @classmethod
-    def fetch_watermarks(cls, db_engine: DBEngine, wm_table_name: str, wm_table_schema: str) -> dict[str, "Watermark"]:
-        sql_query = build_select_query_dwt(table_name=wm_table_name, schema_name=wm_table_schema)
+@dataclass
+class WatermarkRepository:
+    pipeline_config: PipelineConfig
+    run_datetime: datetime
 
-        with db_engine.build_connection() as conn:
-            with conn.cursor(row_factory=class_row(cls)) as cur:
-                watermarks: list[cls] = cur.execute(sql_query).fetchall()
-                return {
-                    watermark.table_name: watermark
-                    for watermark in watermarks
-                }
+    def fetch_watermarks(self, conn: Connection) -> dict[str, "Watermark"]:
+        with conn.cursor(row_factory=class_row(Watermark)) as cur:
+            query = self.select_watermarks_query(self.pipeline_config)
+            watermarks: list["Watermark"] = cur.execute(query).fetchall()
 
-    @classmethod
-    def load_from_main_table(cls, conn: Connection, table_name: str, schema: str,
-                             marking_column: str) -> "Watermark | None":
-        sql_query = select_watermark_details(
-            table_name=table_name,
-            schema=schema,
-            marking_column=marking_column
+            return {
+                watermark.table_name: watermark
+                for watermark in watermarks
+            }
+
+    def load_from_main_table(self, conn: Connection, table: Table, schema_name: str) -> "Watermark | None":
+        with conn.cursor() as cur:
+            query = self.summarize_watermark_query(table=table, schema_name=schema_name)
+            return cur.execute(query).fetchone()
+
+    def set_default_watermark(self, conn: Connection, table: Table, schema_name: str):
+        default_watermark = Watermark(
+            source_system=schema_name,
+            table_name=table.name,
+            schema_name=schema_name,
+            marking_column=table.marking_column,
+            highest_watermark=DEFAULT_EPOCH,
+            dw_run_timestamp=self.run_datetime
         )
 
-        with conn.cursor(row_factory=class_row(cls)) as cur:
-            return cur.execute(sql_query).fetchone()
-
-    @classmethod
-    def sync(cls, conn: Connection, table_name: str, source_name: str, marking_column: str, run_datetime: datetime):
-        loaded_watermark = cls.load_from_main_table(
+        return self.upsert(
             conn=conn,
-            table_name=table_name,
-            schema=source_name,
-            marking_column=marking_column
+            watermark=default_watermark,
+            new_highest_wm=default_watermark.highest_watermark.isoformat(),
+        )
+
+    def sync(self, conn: Connection, table: Table, schema_name: str):
+        loaded_watermark = self.load_from_main_table(
+            conn=conn,
+            table=table,
+            schema_name=schema_name
         )
 
         if loaded_watermark:
-            return loaded_watermark.upsert(
+            return self.upsert(
                 conn=conn,
-                new_watermark=loaded_watermark.highest_watermark.isoformat(),
-                run_datetime=run_datetime
+                watermark=loaded_watermark,
+                new_highest_wm=loaded_watermark.highest_watermark.isoformat(),
             )
 
-        return cls.set_default_watermark(
+        return self.set_default_watermark(
             conn=conn,
-            source=source_name,
-            table_name=table_name,
-            marking_column=marking_column,
-            run_datetime=run_datetime
+            table=table,
+            schema_name=schema_name
         )
 
-    def upsert(self, conn: Connection, new_watermark: datetime | str, run_datetime: datetime) -> "Watermark":
-        if isinstance(new_watermark, str):
-            new_wm_datetime = datetime.fromisoformat(new_watermark)
+    def upsert(self, watermark: Watermark, conn: Connection, new_highest_wm: datetime | str) -> Watermark:
+        if isinstance(new_highest_wm, str):
+            new_wm_datetime = datetime.fromisoformat(new_highest_wm)
         else:
-            new_wm_datetime = new_watermark
+            new_wm_datetime = new_highest_wm
 
-        if new_wm_datetime < self.highest_watermark:
-            print(f"Ignored lower watermark {new_wm_datetime} (current: {self.highest_watermark})")
-            return self
+        if new_wm_datetime < watermark.highest_watermark:
+            print(f"Ignored lower watermark {new_wm_datetime} (current: {watermark.highest_watermark})")
+            return watermark
 
-        self.highest_watermark = new_wm_datetime
-        self.dw_run_timestamp = run_datetime
-
-        query = upsert_watermark(
-            columns=self.get_columns(),
-            table_name="watermark_logs",
-            schema="pipeline_run",
-            conflict_column="table_name"
-        )
+        watermark.highest_watermark = new_wm_datetime
+        watermark.dw_run_timestamp = self.run_datetime
 
         with conn.cursor() as cur:
-            cur.execute(query, tuple(asdict(self).values()))
+            cur.execute(self.upsert_watermark_query(), tuple(asdict(watermark).values()))
 
-        return self
+        return watermark
+
+    def upsert_watermark_query(self) -> bytes:
+        columns = list(Watermark.__dict__.keys())
+
+        return SQL("""
+                   INSERT INTO {}.{} ({})
+                   VALUES ({})
+                   ON CONFLICT ({})
+                       DO
+                   UPDATE SET
+                       highest_watermark = GREATEST({}.{}.highest_watermark, EXCLUDED.highest_watermark),
+                       dw_run_timestamp = GREATEST({}.{}.dw_run_timestamp, EXCLUDED.dw_run_timestamp)
+                   """).format(
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name),
+            SQL(', ').join(map(Identifier, columns)),
+            SQL(', ').join(self.build_placeholder(len(columns))),
+            Identifier("table_name"),
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name),
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name)
+        ).as_bytes()
 
     @staticmethod
-    def set_default_watermark(conn: Connection, source: str,
-                              table_name: str, marking_column: str,
-                              run_datetime: datetime):
-        default_watermark = Watermark(
-            source_system=source,
-            table_name=table_name,
-            schema_name=source,
-            marking_column=marking_column,
-            highest_watermark=DEFAULT_EPOCH,
-            dw_run_timestamp=run_datetime
-        )
+    def summarize_watermark_query(table: Table, schema_name: str) -> bytes:
+        return SQL("""
+                   SELECT
+                       {} AS source_system, 
+                       {} AS table_name, 
+                       {} AS schema_name, 
+                       {} AS marking_column, 
+                       MAX ({}) AS highest_watermark, 
+                       MAX (dw_run_timestamp) AS dw_run_timestamp
+                   FROM {}.{}
+                   GROUP BY 1, 2, 3, 4
+                   """).format(
+            Literal(schema_name),
+            Literal(table.name),
+            Literal(schema_name),
+            Literal(table.marking_column),
+            Identifier(table.marking_column),
+            Identifier(schema_name),
+            Identifier(table.name)
+        ).as_bytes()
 
-        return default_watermark.upsert(
-            conn=conn,
-            new_watermark=default_watermark.highest_watermark.isoformat(),
-            run_datetime=run_datetime
-        )
+    @staticmethod
+    def select_watermarks_query(pipeline_config: PipelineConfig) -> bytes:
+        return SQL("SELECT * FROM {}.{}").format(
+            Identifier(pipeline_config.watermark_table_schema),
+            Identifier(pipeline_config.watermark_table_name)
+        ).as_bytes()
+
+    @staticmethod
+    def build_placeholder(number: int) -> list[Placeholder]:
+        return [Placeholder() for _ in range(number)]

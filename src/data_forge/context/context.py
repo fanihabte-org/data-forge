@@ -26,6 +26,10 @@ class Table(BaseModel):
     def type_cast(self) -> dict:
         return {col.name: col.type for col in self.columns}
 
+    @property
+    def mc_index(self) -> int:
+        return self.column_names.index(self.marking_column)
+
 
 class Catalog(BaseModel):
     source_name: str

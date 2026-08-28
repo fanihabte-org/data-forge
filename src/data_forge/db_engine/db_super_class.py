@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from datetime import datetime
-from pathlib import Path
 
 from typing import TYPE_CHECKING
+
+from data_forge.context.context import Table, PipelineConfig
 
 if TYPE_CHECKING:
     from data_forge.db_engine.engine import DBEngine
@@ -16,15 +17,15 @@ if TYPE_CHECKING:
 class SourceInterface(ABC):
 
     @abstractmethod
-    def extract_after_watermark(self, run_datetime: datetime, watermark):
+    def extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
     @abstractmethod
-    def bulk_export_all(self, run_datetime: datetime, table_name: str):
+    def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
     @abstractmethod
-    def bulk_export_after_watermark(self, run_datetime: datetime, watermark: Watermark):
+    def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
 
@@ -33,9 +34,18 @@ class TargetInterface(SourceInterface):
     db_engine: DBEngine
 
     @abstractmethod
-    def bulk_insert_csv(self, table_name: str, source: str, download_dir: Path, run_datetime: datetime, columns: list):
+    def bulk_insert_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
     @abstractmethod
-    def insert_batches(self, batches: list[tuple], table_name: str, source: str, run_datetime: datetime, watermark: Watermark, columns: list):
+    def bulk_insert_from_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
+        pass
+
+    @abstractmethod
+    def insert_batches(self,
+                       batches: list[tuple],
+                       insert_into_query: bytes,
+                       table: Table,
+                       watermark: Watermark,
+                       run_datetime: datetime):
         pass

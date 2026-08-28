@@ -7,15 +7,31 @@ from typing import TYPE_CHECKING
 
 from data_forge.analyzer.validator.validator import Validator
 from data_forge.analyzer.planner.planner import Planner
+from data_forge.context.context import PipelineConfig
 
 if TYPE_CHECKING:
     from data_forge.db_services.source import SourceDB
     from data_forge.db_services.target import TargetDW
-    from data_forge.logging.watermark import Watermark
+    from data_forge.logging.watermark import Watermark, WatermarkRepository
     from data_forge.sales_force.sales_force import SalesForce
 
 
-@dataclass(frozen=True)
+@dataclass
+class PlannerFactory:
+    pipeline: Pipeline
+
+    def build(self, source_db: SourceDB):
+        return Planner(
+            source_db=source_db,
+            target_dw=self.pipeline.edi,
+            watermarks=self.pipeline.watermarks,
+            run_datetime=self.pipeline.run_datetime,
+            pipeline_config=self.pipeline.pipeline_config,
+            watermark_repository=self.pipeline.watermark_repository
+        )
+
+
+@dataclass
 class Pipeline:
     sales_force: SalesForce
     erp: SourceDB
@@ -23,74 +39,14 @@ class Pipeline:
     edi: TargetDW
     watermarks: dict[str, Watermark]
     run_datetime: datetime
+    pipeline_config: PipelineConfig
+    watermark_repository: WatermarkRepository
 
-    def run_bulk_salesforce_export(self):
-        self.validate_pipeline()
+    @property
+    def planner(self):
+        return PlannerFactory(pipeline=self)
 
-        tables = self.sales_force.catalog.tables
-        for table in tables.values():
-            print(f"Started work on table {table}")
-            self.sales_force.bulk_export_all(table_name=table.name, run_datetime=self.run_datetime)
-            print(f"Completed work on table <<{table}>>\n")
-
-    def run_incremental_salesforce_pipeline(self):
-        self.validate_pipeline()
-
-        tables = self.sales_force.catalog.tables
-        for table in tables.values():
-            print(f"Started work on table {table}")
-            watermark_response = self._check_watermark(table.name)
-            data_stream = self.sales_force.extract_after_watermark(watermark=watermark_response,
-                                                                   run_datetime=self.run_datetime)
-            print(f"Completed work on table <<{table}>>\n")
-            # self.edi.insert_many(batch=data_stream, table_name=table, source=source)
-
-    # def load_export_data_to_dw(self, table_name: str, download_dir: Path):
-    #     self.edi.bulk_insert_csv(table_name=table_name,
-    #                              source="crm",
-    #                              download_dir=download_dir,
-    #                              run_datetime=self.run_datetime,
-    #                              columns=)
-
-    def run_incremental_daily_pipeline(self):
-        db_sources = [self.erp, self.ops]
-        for db_source in db_sources:
-            self._read_write_tables(source_db=db_source)
-
-    def run_incremental_erp_pipeline(self):
-        self._read_write_tables(source_db=self.erp)
-
-    def run_incremental_ops_pipeline(self):
-        self._read_write_tables(source_db=self.ops)
-
-    def _read_write_tables(self, source_db: SourceDB):
-        self.validate_pipeline()
-        tables = source_db.catalog.tables
-        for table in tables.values():
-            print(f"Started work on table {table}")
-            batches = source_db.extract_after_watermark(
-                run_datetime=self.run_datetime,
-                watermark=self.watermarks[table.name]
-            )
-
-            self.edi.insert_batches(
-                batches=batches,
-                table_name=table.name,
-                source=source_db.catalog.source_name,
-                watermark=self.watermarks[table.name],
-                columns=table.column_names,
-                run_datetime=self.run_datetime
-            )
-
-            print(f"Completed work on table <<{table}>>\n")
-
-    # def _check_watermark(self, table_name: str) -> Watermark:
-    #     if watermark := self.watermarks.get(table_name):
-    #         return watermark
-    #
-    #     raise WatermarkNotAvailable(table=table_name)
-
-    def validate_pipeline(self):
+    def validate(self):
         validator = Validator(
             source_db=self.ops,
             target_dw=self.edi,
@@ -98,18 +54,39 @@ class Pipeline:
         )
         print(validator.run_checks())
 
-    def plan_pipeline_run(self, source_db: SourceDB):
-        planner = Planner(
-            source_db=source_db,
-            target_dw=self.edi,
-            watermarks=self.watermarks,
-            run_datetime=self.run_datetime
-        )
-        analysis = planner.build_plan()
-        print("PIPELINE ANALYSIS")
+    def analyze(self, source_db: SourceDB):
+        planner = self.planner.build(source_db=source_db)
+        analyses = planner.preflight_analysis()
 
-        for table_name, plan in analysis.items():
+        print("\n=======================================")
+        print(f"{source_db.catalog.source_name.upper()} PIPELINE ANALYSIS")
+        print("=======================================\n")
+        for table_name, analysis in analyses.items():
             print("\nTable: ", table_name)
-            print("Highest Watermark:", plan.watermark_check.object.highest_watermark)
-            print("Ingress Volume:", plan.ingress_volume.egress_volume)
+            print("Highest Watermark:", analysis.watermark_check.object.highest_watermark)
+            print("Ingress Volume:", analysis.ingress_volume.egress_volume)
 
+    def explain_plan(self, source_db: SourceDB):
+        planner = self.planner.build(source_db=source_db)
+        execution_plans = planner.build_plan()
+
+        print("\n=======================================")
+        print(f"{source_db.catalog.source_name.upper()} PIPELINE EXECUTION PLAN")
+        print("=======================================\n")
+
+        for table_name, plan in execution_plans.items():
+            print("\n Table: ", table_name)
+            print(" Plan type: ", plan.execution_type)
+
+    def execute(self, source_db: SourceDB):
+        planner = self.planner.build(source_db=source_db)
+        execution_plans = planner.build_plan()
+
+        print("\n=======================================")
+        print(f"{source_db.catalog.source_name.upper()} PIPELINE EXECUTION")
+        print("=======================================\n")
+
+        for table_name, plan in execution_plans.items():
+            print("\n Table: ", table_name)
+            print(" Plan type: ", plan.execution_type)
+            plan.execute()
