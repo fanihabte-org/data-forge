@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from data_forge.analyzer.reporter import AnalysesReporter
 from data_forge.planner.reporter import ExecutionReporter
 from data_forge.context.context import Catalog
-from data_forge.planner.models import Plan
+from data_forge.planner.plans import Plan
 from data_forge.analyzer.analyzer import Analyzer
 from data_forge.planner.factory import PlannerFactory
 from data_forge.validator.validator import Validator
@@ -17,14 +17,16 @@ class Planner:
     catalog: Catalog
 
     def build_plan(self) -> dict[str, Plan]:
+        self.validator.run_checks()
+        tables_wm_validations = self.validator.run_watermark_checks()
         volume_analyses = self.analyzer.analyze_volume()
-        tables_validations = self.validator.run_watermark_checks()
+
         tables = self.catalog.tables
 
         plans = {}
 
         for table_name, table_obj in tables.items():
-            watermark_validation = tables_validations[table_name]
+            watermark_validation = tables_wm_validations[table_name]
             volume_analysis = volume_analyses[table_name]
 
             if not watermark_validation.exist:

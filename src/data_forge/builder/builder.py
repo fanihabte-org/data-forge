@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 
 from data_forge.analyzer.analyzer import Analyzer
 from data_forge.analyzer.factory import AnalyzerFactory
+from data_forge.db_engine.db_sql_builder import QueryBuilder
 from data_forge.planner.factory import PlannerFactory
+from data_forge.resolver.resolver import Resolver
 from data_forge.sales_force.auth import Auth
 
 from data_forge.context.context import Context
@@ -48,7 +50,8 @@ class Builder:
 
     def target_dw(self, db_name: str):
         return TargetDW(
-            db_engine=self.engine(db_name=db_name)
+            db_engine=self.engine(db_name=db_name),
+            watermark_repository=self.watermark_repository()
         )
 
     def pipeline(self, source_db_name: str, target_dw_name: str, source_name: str):
@@ -118,7 +121,8 @@ class Builder:
                 target_dw_name=target_dw_name
             ),
             source_db=self.source_db(source=source_name, db_name=source_db_name),
-            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog
+            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog,
+            target_dw=self.target_dw(db_name=target_dw_name)
         )
 
     def planner_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
@@ -127,20 +131,17 @@ class Builder:
             source_db=self.source_db(source=source_name, db_name=source_db_name),
             target_dw=self.target_dw(db_name=target_dw_name),
             watermark_repository=self.watermark_repository(),
-            watermarks=self.watermark_repository().fetch_watermarks(
-                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
-            ),
-            run_datetime=self.run_datetime
+            run_datetime=self.run_datetime,
+            query_builder=self.query_builder(source_name=source_name)
         )
 
     def analyzer_factory(self, source_name: str, target_dw_name: str):
         return AnalyzerFactory(
             pipeline_config=self.context().pipeline_config,
             source_name=source_name,
-            watermarks=self.watermark_repository().fetch_watermarks(
-                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
-            ),
             run_datetime=self.run_datetime,
+            target_dw=self.target_dw(db_name=target_dw_name),
+            query_builder=self.query_builder(source_name=source_name),
             watermark_repository=self.watermark_repository()
         )
 
@@ -154,7 +155,12 @@ class Builder:
             catalog=self.source_db(
                 db_name=source_db_name,
                 source=source_name
-            ).catalog
+            ).catalog,
+            resolver=self.resolver(
+                source_name=source_name,
+                target_dw_name=target_dw_name
+            )
+
         )
 
     def validator_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
@@ -162,9 +168,22 @@ class Builder:
             pipeline_config=self.context().pipeline_config,
             source_db=self.source_db(source=source_name, db_name=source_db_name),
             target_dw=self.target_dw(db_name=target_dw_name),
-            watermarks=self.watermark_repository().fetch_watermarks(
-                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
-            ),
             run_datetime=self.run_datetime,
+            watermark_repository=self.watermark_repository(),
+            query_builder=self.query_builder(source_name=source_name)
+        )
+
+    def resolver(self, source_name: str, target_dw_name: str):
+        return Resolver(
+            schema_name=source_name,
+            target_dw=self.target_dw(db_name=target_dw_name),
+            query_builder=self.query_builder(source_name=source_name),
             watermark_repository=self.watermark_repository()
+        )
+
+    def query_builder(self, source_name: str):
+        return QueryBuilder(
+            schema_name=source_name,
+            pipeline_config=self.context().pipeline_config,
+            run_datetime=self.run_datetime
         )

@@ -6,7 +6,7 @@ from datetime import datetime
 
 from typing import TYPE_CHECKING
 
-from data_forge.context.context import Table, PipelineConfig
+from data_forge.context.models import Table, PipelineConfig
 
 if TYPE_CHECKING:
     from data_forge.db_engine.engine import DBEngine

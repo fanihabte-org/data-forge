@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, TYPE_CHECKING
 
-from data_forge.planner.models import ExecutionType
+from data_forge.planner.plans import ExecutionType
 
 if TYPE_CHECKING:
-    from data_forge.planner.models import Plan
+    from data_forge.planner.plans import Plan
 
 # ANSI Terminal Colors & Formatting
 GREEN = "\033[92m"

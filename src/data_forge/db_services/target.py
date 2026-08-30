@@ -1,14 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from data_forge.context.context import PipelineConfig, Table
+from data_forge.context.models import PipelineConfig, Table
 from data_forge.db_engine.db_super_class import TargetInterface
-from data_forge.logging.watermark import Watermark
+from data_forge.logging.watermark import Watermark, WatermarkRepository
 import duckdb
 
 
 @dataclass
 class TargetDW(TargetInterface):
+    watermark_repository: WatermarkRepository
 
     def extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
@@ -50,10 +51,10 @@ class TargetDW(TargetInterface):
             for batch in batches:
                 cur.executemany(insert_into_query, batch)
                 batch_highest_watermark = batch[-1][table.mc_index].isoformat()
-                watermark.upsert(
-                    conn=conn,
-                    new_watermark=batch_highest_watermark,
-                    run_datetime=run_datetime
+                self.watermark_repository.upsert(
+                    watermark=watermark,
+                    new_highest_wm=batch_highest_watermark,
+                    conn=conn
                 )
                 total_rows += 1
                 print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")

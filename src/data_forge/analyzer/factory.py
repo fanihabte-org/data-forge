@@ -1,29 +1,31 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from data_forge.analyzer.models import AnalyzeVolume
-from data_forge.context.context import Table, PipelineConfig
+from data_forge.analyzer.analyzes import AnalyzeVolume
+from data_forge.context.models import Table, PipelineConfig
 from data_forge.db_engine.db_sql_builder import QueryBuilder
+from data_forge.db_services.target import TargetDW
 
-from data_forge.logging.watermark import Watermark, WatermarkRepository
+from data_forge.logging.watermark import WatermarkRepository
 
 
 @dataclass
 class AnalyzerFactory:
     pipeline_config: PipelineConfig
+    target_dw: TargetDW
     source_name: str
-    watermarks: dict[str, Watermark]
     run_datetime: datetime
+    query_builder: QueryBuilder
     watermark_repository: WatermarkRepository
+
+    @property
+    def watermarks(self):
+        with self.target_dw.db_engine.build_connection() as conn:
+            return self.watermark_repository.fetch_watermarks(conn=conn)
 
     def analyze_volume(self, table: Table) -> AnalyzeVolume:
         return AnalyzeVolume(
             table=table,
-            query_builder=QueryBuilder(
-                table=table,
-                schema_name=self.source_name,
-                watermark=self.watermarks[table.name],
-                run_datetime=self.run_datetime,
-                pipeline_config=self.pipeline_config
-            )
+            query_builder=self.query_builder,
+            watermark=self.watermarks[table.name]
         )

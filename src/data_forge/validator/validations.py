@@ -52,11 +52,11 @@ class TableValidation(Validations):
 
     def _fetch_tables_info(self, conn: Connection) -> list[TableInfo]:
         with conn.cursor(row_factory=class_row(TableInfo)) as cur:
-            return cur.execute(self.query_builder.table_info()).fetchall()
+            return cur.execute(self.query_builder.select_info(table=self.table)).fetchall()
 
     def _fetch_table_columns(self, conn: Connection) -> list[Column]:
         with conn.cursor(row_factory=class_row(Column)) as cur:
-            return cur.execute(self.query_builder.table_columns()).fetchall()
+            return cur.execute(self.query_builder.select_columns_info(table=self.table)).fetchall()
 
 
 @dataclass
@@ -73,5 +73,6 @@ class TableWatermarkValidation(Validations):
         )
         return WatermarkValidationResult(
             exist=type(watermark) == Watermark,
-            watermark=watermark
+            watermark=watermark,
+            resolved=False
         )

@@ -4,7 +4,7 @@ from datetime import datetime
 from psycopg import Connection
 from psycopg.rows import class_row
 from dataclasses import dataclass, asdict, fields
-from data_forge.context.context import Table, PipelineConfig
+from data_forge.context.models import Table, PipelineConfig
 from psycopg.sql import Identifier, SQL, Placeholder, Literal
 
 DEFAULT_EPOCH = datetime(1970, 1, 1, 0, 0, 0)
@@ -101,13 +101,15 @@ class WatermarkRepository:
         watermark.highest_watermark = new_wm_datetime
         watermark.dw_run_timestamp = self.run_datetime
 
+        columns = list(asdict(watermark).keys())
+        watermark_values = tuple(asdict(watermark).values())
+
         with conn.cursor() as cur:
-            cur.execute(self.upsert_watermark_query(), tuple(asdict(watermark).values()))
+            cur.execute(self.upsert_watermark_query(columns), watermark_values)
 
         return watermark
 
-    def upsert_watermark_query(self) -> bytes:
-        columns = list(Watermark.__dict__.keys())
+    def upsert_watermark_query(self, columns: list[str]) -> bytes:
 
         return SQL("""
                    INSERT INTO {}.{} ({})

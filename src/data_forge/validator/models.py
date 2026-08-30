@@ -1,7 +1,9 @@
 from typing import Optional
 from pydantic import BaseModel
 
+from data_forge.context.models import Table
 from data_forge.logging.watermark import Watermark
+from data_forge.resolver.models import ResolutionType
 
 
 class TableInfo(BaseModel):
@@ -17,7 +19,14 @@ class ColumnValidation(BaseModel):
 
 class WatermarkValidationResult(BaseModel):
     exist: bool
+    resolved: bool
     watermark: Optional[Watermark]
+
+
+class WatermarkValidationResultResolved(WatermarkValidationResult):
+    table: Table
+    resolution_type: ResolutionType
+    synced_watermark: Watermark
 
 
 class TableValidationResult(BaseModel):
