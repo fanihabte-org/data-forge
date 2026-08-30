@@ -1,21 +1,30 @@
+from abc import ABC
 from dataclasses import dataclass
-from typing import Optional
-from data_forge.logging.watermark import Watermark
+
+from psycopg import Connection
+from psycopg.rows import class_row
+
+from data_forge.context.context import Table
+from data_forge.db_engine.db_sql_builder import QueryBuilder
+from data_forge.analyzer.analyses import VolumeAnalysis
+
 
 @dataclass
-class WatermarkCheck:
-    exists: bool
-    object: Optional[Watermark]
+class Analyze(ABC):
+    table: Table
+    query_builder: QueryBuilder
+
 
 @dataclass
-class IngressVolume:
-    table_name: str
-    schema_name: str
-    egress_volume: int
+class AnalyzeVolume(Analyze):
 
-@dataclass
-class LazyAnalysis:
-    table_name: str
-    ingress_volume: IngressVolume
-    watermark_check: WatermarkCheck
+    # Check data ingress volume
+    def execute(self, conn: Connection) -> VolumeAnalysis:
+        query = self.query_builder.count_delta()
+        with conn.cursor(row_factory=class_row(VolumeAnalysis)) as cur:
+            data: VolumeAnalysis | None = cur.execute(query).fetchone()
 
+            if not data:
+                raise RuntimeError(f"Table {self.table.name} returned None for ingress volume analysis")
+
+            return data

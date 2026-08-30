@@ -7,44 +7,17 @@ from data_forge.db_services.source import SourceDB
 from data_forge.db_services.target import TargetDW
 
 from data_forge.logging.watermark import Watermark, WatermarkRepository
-from data_forge.planner.models import BulkPlan, SkipPlan, IncrementalPlan, ExecutionType
-from data_forge.validator.models import TableValidation
+from data_forge.planner.models import BulkPlan, SkipPlan, IncrementalPlan, ExecutionType, WatermarkSyncPlan
 
 
 @dataclass
-class PipelineStepFactory:
+class PlannerFactory:
     pipeline_config: PipelineConfig
     source_db: SourceDB
     target_dw: TargetDW
     watermarks: dict[str, Watermark]
     run_datetime: datetime
     watermark_repository: WatermarkRepository
-
-    def build_src_table_validation(self, table: Table):
-        return TableValidation(
-            table=table,
-            db_engine=self.source_db.db_engine,
-            query_builder=QueryBuilder(
-                table=table,
-                schema_name=self.source_db.catalog.source_name,
-                watermark=self.watermarks[table.name],
-                run_datetime=self.run_datetime,
-                pipeline_config=self.pipeline_config
-            )
-        )
-
-    def build_target_table_validation(self, table: Table):
-        return TableValidation(
-            table=table,
-            db_engine=self.target_dw.db_engine,
-            query_builder=QueryBuilder(
-                table=table,
-                schema_name=self.source_db.catalog.source_name,
-                watermark=self.watermarks[table.name],
-                run_datetime=self.run_datetime,
-                pipeline_config=self.pipeline_config
-            )
-        )
 
     def build_skip_plan(self, table: Table) -> SkipPlan:
         return SkipPlan(
@@ -62,7 +35,6 @@ class PipelineStepFactory:
                 run_datetime=self.run_datetime,
                 pipeline_config=self.pipeline_config
             )
-
         )
 
     def build_incremental_plan(self, table: Table) -> IncrementalPlan:
@@ -73,7 +45,7 @@ class PipelineStepFactory:
             watermark=self.watermarks[table.name],
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
-            execution_type=ExecutionType.INCREMENTAL,
+            execution_type=ExecutionType.SKIP,
             query_builder=QueryBuilder(
                 table=table,
                 schema_name=self.source_db.catalog.source_name,
@@ -91,7 +63,7 @@ class PipelineStepFactory:
             watermark=self.watermarks[table.name],
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
-            execution_type=ExecutionType.BULK,
+            execution_type=ExecutionType.SKIP,
             query_builder=QueryBuilder(
                 table=table,
                 schema_name=self.source_db.catalog.source_name,
@@ -99,4 +71,23 @@ class PipelineStepFactory:
                 run_datetime=self.run_datetime,
                 pipeline_config=self.pipeline_config
             )
+        )
+
+    def build_watermark_sync_plan(self, table: Table) -> WatermarkSyncPlan:
+        return WatermarkSyncPlan(
+            run_datetime=self.run_datetime,
+            source_db=self.source_db,
+            table=table,
+            watermark=self.watermarks[table.name],
+            target_dw=self.target_dw,
+            pipeline_config=self.pipeline_config,
+            execution_type=ExecutionType.SKIP,
+            query_builder=QueryBuilder(
+                table=table,
+                schema_name=self.source_db.catalog.source_name,
+                watermark=self.watermarks[table.name],
+                run_datetime=self.run_datetime,
+                pipeline_config=self.pipeline_config
+            ),
+            watermark_repository=self.watermark_repository
         )

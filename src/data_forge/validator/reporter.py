@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Mapping
+from data_forge.validator.models import TableValidationResult, WatermarkValidationResult
 
-if TYPE_CHECKING:
-    from data_forge.validator.validator import ValidationResult
-
-# Color ANSI Codes
+# ANSI Terminal Colors & Formatting
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
@@ -23,7 +21,8 @@ class ValidationReporter:
         return f"{GREEN}✔ PASSED{RESET}" if passed else f"{RED}✖ FAILED{RESET}"
 
     @classmethod
-    def print_result(cls, result: ValidationResult) -> None:
+    def print_result(cls, results: dict[str, dict[str, TableValidationResult]]) -> None:
+        """Prints schema and column structure validation report for source and target."""
         print(f"\n{BOLD}{CYAN}===================================================={RESET}")
         print(f"{BOLD}{CYAN}              DATABASE VALIDATION REPORT            {RESET}")
         print(f"{BOLD}{CYAN}===================================================={RESET}\n")
@@ -32,36 +31,64 @@ class ValidationReporter:
         print(f"{BOLD}1. TABLE EXISTENCE CHECKS{RESET}")
         print("-" * 52)
 
-        for env_name, check in [
-            ("Source Database", result.tables_in_source),
-            ("Target Data Warehouse", result.tables_in_target),
-        ]:
-            badge = cls._status_badge(check.all_tables_exist)
-            print(f"  • {env_name:<25} [{badge}]")
-            if not check.all_tables_exist and check.missing_tables:
-                print(f"    {RED}Missing Tables:{RESET} {', '.join(check.missing_tables)}")
+        for env_key, env_label in [("source", "Source Database"), ("target", "Target Data Warehouse")]:
+            tables_map = results.get(env_key, {})
+            all_tables_exist = all(res.exists for res in tables_map.values()) if tables_map else False
+            badge = cls._status_badge(all_tables_exist)
+
+            print(f"  • {env_label:<25} [{badge}]")
+
+            missing_tables = [name for name, res in tables_map.items() if not res.exists]
+            if missing_tables:
+                print(f"    {RED}Missing Tables:{RESET} {', '.join(missing_tables)}")
 
         print("\n" + f"{BOLD}2. COLUMN STRUCTURE CHECKS{RESET}")
         print("-" * 52)
 
         # 2. Detailed Column Structure Checks
-        environments = [
-            ("Source Database", result.table_columns_in_source),
-            ("Target Data Warehouse", result.table_columns_in_target),
-        ]
+        for env_key, env_label in [("source", "Source Database"), ("target", "Target Data Warehouse")]:
+            tables_map = results.get(env_key, {})
+            print(f"\n  {BOLD}{CYAN}[ {env_label} ]{RESET}")
 
-        for env_name, tables in environments:
-            print(f"\n  {BOLD}{CYAN}[ {env_name} ]{RESET}")
-            if not tables:
+            if not tables_map:
                 print(f"    {YELLOW}No column checks performed.{RESET}")
                 continue
 
-            for table_name, check in tables.items():
-                badge = cls._status_badge(check.all_tables_exist)
+            for table_name, res in tables_map.items():
+                passed = res.exists and res.column_validation.all_exist
+                badge = cls._status_badge(passed)
+
                 print(f"    ├─ Table: {BOLD}{table_name:<22}{RESET} [{badge}]")
 
-                if not check.all_tables_exist and check.missing_tables:
-                    missing = ", ".join(check.missing_tables)
+                if not res.column_validation.all_exist and res.column_validation.missing_columns:
+                    missing = ", ".join(res.column_validation.missing_columns)
                     print(f"    │  └─ {RED}Missing Columns:{RESET} {missing}")
 
         print(f"\n{BOLD}{CYAN}===================================================={RESET}\n")
+
+    @classmethod
+    def print_watermark_result(cls, results: Mapping[str, WatermarkValidationResult]) -> None:
+        """Prints watermark check results for each table in a clean tree format."""
+        print(f"\n{BOLD}{CYAN}===================================================={RESET}")
+        print(f"{BOLD}{CYAN}             WATERMARK VALIDATION REPORT            {RESET}")
+        print(f"{BOLD}{CYAN}===================================================={RESET}\n")
+
+        for table_name, res in results.items():
+            badge = cls._status_badge(res.exist)
+            print(f"  ├─ Table: {BOLD}{table_name:<28}{RESET} [{badge}]")
+
+            if res.exist and res.watermark:
+                wm = res.watermark
+                # Format timestamps cleanly (YYYY-MM-DD HH:MM:SS)
+                hw_str = wm.highest_watermark.strftime("%Y-%m-%d %H:%M:%S") if wm.highest_watermark else "None"
+                run_str = wm.dw_run_timestamp.strftime("%Y-%m-%d %H:%M:%S") if wm.dw_run_timestamp else "None"
+
+                print(f"  │  ├─ Marking Column   : {CYAN}{wm.marking_column}{RESET}")
+                print(f"  │  ├─ Highest Watermark: {GREEN}{hw_str}{RESET}")
+                print(f"  │  └─ DW Run Timestamp : {run_str}")
+            else:
+                print(f"  │  └─ {YELLOW}No watermark recorded{RESET}")
+
+            print("  │")
+
+        print(f"{BOLD}{CYAN}===================================================={RESET}\n")

@@ -19,6 +19,9 @@ class TargetDW(TargetInterface):
     def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
+    def bulk_insert_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
+        pass
+
     def bulk_insert_from_csv(self, sql_query: bytes, pipeline_config: PipelineConfig):
         with duckdb.connect() as conn:
             conn.execute("Install postgres;")
@@ -28,8 +31,8 @@ class TargetDW(TargetInterface):
     def bulk_insert_batches(self, sql_query: bytes, batches: list[tuple]):
         with self.db_engine.build_connection() as conn:
             with conn.cursor().copy(sql_query) as copy:
-                 for row in batches:
-                     copy.write_row(row)
+                for row in batches:
+                    copy.write_row(row)
 
     def insert_batches(self,
                        batches: list[tuple],
@@ -54,23 +57,3 @@ class TargetDW(TargetInterface):
                 )
                 total_rows += 1
                 print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")
-
-        # mc_index = columns.index(watermark.marking_column)
-
-        # columns += ["dw_run_timestamp"]
-        # sql_query = insert_all_into(
-        #     table_name=table_name,
-        #     columns=columns,
-        #     source=source,
-        #     format_query=True
-        # )
-
-        # for file in Path(pipeline_config.export_path).iterdir():
-        #     # sql_query = copy_from_csv(table_name=table_name,
-        #     #                           columns=columns,
-        #     #                           source=source,
-        #     #                           run_datetime=run_datetime,
-        #     #                           file_path=file
-        #     #                           )
-        #     print(sql_query)
-        #     conn.execute(sql_query)

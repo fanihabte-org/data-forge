@@ -7,15 +7,16 @@ from data_forge.db_engine.db_sql_builder import QueryBuilder
 from data_forge.db_services.source import SourceDB
 from data_forge.db_services.target import TargetDW
 
-from data_forge.logging.watermark import Watermark
+from data_forge.logging.watermark import Watermark, WatermarkRepository
 
 from dataclasses import dataclass
 
 
 class ExecutionType(Enum):
-    INCREMENTAL = 1
-    BULK = 2
-    SKIP = 3
+    SYNC_WATERMARK = 1
+    INCREMENTAL = 2
+    BULK = 3
+    SKIP = 4
 
 
 @dataclass
@@ -34,7 +35,22 @@ class Plan(ABC):
 
 
 @dataclass
+class WatermarkSyncPlan(Plan):
+    watermark_repository: WatermarkRepository
+    execution_type = ExecutionType.SYNC_WATERMARK
+
+    def execute(self):
+        with self.target_dw.db_engine.build_connection() as conn:
+            self.watermark_repository.sync(
+                conn=conn,
+                table=self.table,
+                schema_name=self.source_db.catalog.source_name
+            )
+
+
+@dataclass
 class IncrementalPlan(Plan):
+    execution_type = ExecutionType.INCREMENTAL
 
     def execute(self):
         extract_incremental_query: bytes = self.query_builder.extract_incremental(format_query=True)
@@ -54,6 +70,7 @@ class IncrementalPlan(Plan):
 
 @dataclass
 class BulkPlan(Plan):
+    execution_type = ExecutionType.BULK
 
     def execute(self):
         copy_from: bytes = self.query_builder.copy_binary_from()
@@ -70,6 +87,7 @@ class BulkPlan(Plan):
 
 @dataclass
 class SkipPlan(Plan):
+    execution_type = ExecutionType.SKIP
 
     def execute(self):
         print(f"Skipped execution {self.table.name}")

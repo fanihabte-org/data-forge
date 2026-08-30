@@ -172,3 +172,6 @@ class QueryBuilder:
             Literal(self.schema_name),
             Literal(self.table.name)
         ).as_bytes()
+
+    def create_tale(self):
+        ...

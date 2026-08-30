@@ -42,6 +42,10 @@ class TargetInterface(SourceInterface):
         pass
 
     @abstractmethod
+    def bulk_insert_batches(self, sql_query: bytes, batches: list[tuple]):
+        pass
+
+    @abstractmethod
     def insert_batches(self,
                        batches: list[tuple],
                        insert_into_query: bytes,

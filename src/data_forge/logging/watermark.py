@@ -7,7 +7,6 @@ from dataclasses import dataclass, asdict, fields
 from data_forge.context.context import Table, PipelineConfig
 from psycopg.sql import Identifier, SQL, Placeholder, Literal
 
-
 DEFAULT_EPOCH = datetime(1970, 1, 1, 0, 0, 0)
 
 
@@ -24,10 +23,19 @@ class Watermark:
     def get_columns(cls) -> list[str]:
         return list(f.name for f in fields(cls))
 
+
 @dataclass
 class WatermarkRepository:
     pipeline_config: PipelineConfig
     run_datetime: datetime
+
+    def fetch_watermark_for_table(self, conn: Connection, table: Table) -> Watermark | None:
+        with conn.cursor(row_factory=class_row(Watermark)) as cur:
+            query = self.select_watermark_query(
+                pipeline_config=self.pipeline_config,
+                table_name=table.name
+            )
+            return cur.execute(query).fetchone()
 
     def fetch_watermarks(self, conn: Connection) -> dict[str, "Watermark"]:
         with conn.cursor(row_factory=class_row(Watermark)) as cur:
@@ -44,7 +52,7 @@ class WatermarkRepository:
             query = self.summarize_watermark_query(table=table, schema_name=schema_name)
             return cur.execute(query).fetchone()
 
-    def set_default_watermark(self, conn: Connection, table: Table, schema_name: str):
+    def set_default_watermark(self, conn: Connection, table: Table, schema_name: str) -> Watermark:
         default_watermark = Watermark(
             source_system=schema_name,
             table_name=table.name,
@@ -125,12 +133,7 @@ class WatermarkRepository:
     def summarize_watermark_query(table: Table, schema_name: str) -> bytes:
         return SQL("""
                    SELECT
-                       {} AS source_system, 
-                       {} AS table_name, 
-                       {} AS schema_name, 
-                       {} AS marking_column, 
-                       MAX ({}) AS highest_watermark, 
-                       MAX (dw_run_timestamp) AS dw_run_timestamp
+                       {} AS source_system, {} AS table_name, {} AS schema_name, {} AS marking_column, MAX ({}) AS highest_watermark, MAX (dw_run_timestamp) AS dw_run_timestamp
                    FROM {}.{}
                    GROUP BY 1, 2, 3, 4
                    """).format(
@@ -148,6 +151,14 @@ class WatermarkRepository:
         return SQL("SELECT * FROM {}.{}").format(
             Identifier(pipeline_config.watermark_table_schema),
             Identifier(pipeline_config.watermark_table_name)
+        ).as_bytes()
+
+    @staticmethod
+    def select_watermark_query(pipeline_config: PipelineConfig, table_name: str) -> bytes:
+        return SQL("SELECT * FROM {}.{} WHERE table_name = {}").format(
+            Identifier(pipeline_config.watermark_table_schema),
+            Identifier(pipeline_config.watermark_table_name),
+            Literal(table_name)
         ).as_bytes()
 
     @staticmethod

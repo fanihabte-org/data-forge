@@ -4,7 +4,8 @@ from datetime import datetime
 from dataclasses import dataclass, field
 
 from data_forge.analyzer.analyzer import Analyzer
-from data_forge.planner.factory import PipelineStepFactory
+from data_forge.analyzer.factory import AnalyzerFactory
+from data_forge.planner.factory import PlannerFactory
 from data_forge.sales_force.auth import Auth
 
 from data_forge.context.context import Context
@@ -18,6 +19,8 @@ from data_forge.sales_force.sales_force import SalesForce
 from data_forge.FileStorage.FileStorage import FileStorage
 from data_forge.sales_force.sf_request import SalesForceRequest
 from data_forge.planner.planner import Planner
+from data_forge.validator.factory import ValidatorFactory
+from data_forge.validator.validator import Validator
 
 
 @dataclass
@@ -48,9 +51,15 @@ class Builder:
             db_engine=self.engine(db_name=db_name)
         )
 
-    def pipeline(self):
+    def pipeline(self, source_db_name: str, target_dw_name: str, source_name: str):
         return Pipeline(
-
+            source_db=self.source_db(source=source_name, db_name=source_db_name),
+            target_dw=self.target_dw(db_name=target_dw_name),
+            planner=self.planner(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            )
         )
 
     def salesforce(self):
@@ -82,28 +91,80 @@ class Builder:
     def engine(self, db_name):
         return self.context().get_engine(db_name=db_name)
 
-    def planner(self, source_db: SourceDB):
+    def planner(self, source_name: str, source_db_name: str, target_dw_name: str):
         return Planner(
-            pipline_factory=self.pipeline_step_factory(source_db=source_db),
-            analyzer="",
-            catalog=source_db.catalog
+            planner_factory=self.planner_factory(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            ),
+            analyzer=self.analyzer(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            ),
+            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog,
+            validator=self.validator(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            )
         )
 
-    def analyzer(self, source_db: SourceDB):
+    def analyzer(self, source_name: str, source_db_name: str, target_dw_name: str):
         return Analyzer(
-            pipline_factory=self.pipeline_step_factory(source_db=source_db),
-            analyzer="",
-            catalog=source_db.catalog
+            analyzer_factory=self.analyzer_factory(
+                source_name=source_db_name,
+                target_dw_name=target_dw_name
+            ),
+            source_db=self.source_db(source=source_name, db_name=source_db_name),
+            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog
         )
 
-    def pipeline_step_factory(self, source_db: SourceDB):
-        return PipelineStepFactory(
+    def planner_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
+        return PlannerFactory(
             pipeline_config=self.context().pipeline_config,
-            source_db=source_db,
-            target_dw=self.target_dw(db_name="erea"),
+            source_db=self.source_db(source=source_name, db_name=source_db_name),
+            target_dw=self.target_dw(db_name=target_dw_name),
             watermark_repository=self.watermark_repository(),
             watermarks=self.watermark_repository().fetch_watermarks(
-                conn=self.target_dw(db_name="erae").db_engine.build_connection()
+                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
             ),
             run_datetime=self.run_datetime
+        )
+
+    def analyzer_factory(self, source_name: str, target_dw_name: str):
+        return AnalyzerFactory(
+            pipeline_config=self.context().pipeline_config,
+            source_name=source_name,
+            watermarks=self.watermark_repository().fetch_watermarks(
+                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
+            ),
+            run_datetime=self.run_datetime,
+            watermark_repository=self.watermark_repository()
+        )
+
+    def validator(self, source_name: str, source_db_name: str, target_dw_name: str):
+        return Validator(
+            validator_factory=self.validator_factory(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            ),
+            catalog=self.source_db(
+                db_name=source_db_name,
+                source=source_name
+            ).catalog
+        )
+
+    def validator_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
+        return ValidatorFactory(
+            pipeline_config=self.context().pipeline_config,
+            source_db=self.source_db(source=source_name, db_name=source_db_name),
+            target_dw=self.target_dw(db_name=target_dw_name),
+            watermarks=self.watermark_repository().fetch_watermarks(
+                conn=self.target_dw(db_name=target_dw_name).db_engine.build_connection()
+            ),
+            run_datetime=self.run_datetime,
+            watermark_repository=self.watermark_repository()
         )
