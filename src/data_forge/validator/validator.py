@@ -1,58 +1,43 @@
 from dataclasses import dataclass
 
-from data_forge.context.context import Catalog
-from data_forge.resolver.resolver import Resolver
+from data_forge.context.models import Table, Catalog
 from data_forge.validator.factory import ValidatorFactory
-from data_forge.validator.models import WatermarkValidationResult, TableValidationResult, \
-    WatermarkValidationResultResolved
+from data_forge.validator.models import WatermarkValidationResult, TableValidationResult, ValidationResult
 from data_forge.validator.reporter import ValidationReporter
 
 
 @dataclass
 class Validator:
     validator_factory: ValidatorFactory
-    catalog: Catalog
-    resolver: Resolver
 
-    def run_checks(self) -> dict[str, dict[str, TableValidationResult]]:
-        results = {
-            "source": self.check_catalog_in_src(),
-            "target": self.check_catalog_in_target()
+    def validate_catalog(self, catalog: Catalog, report: bool = False) -> dict[str, ValidationResult]:
+        validation_results = {
+            table_name: self.validate_table(table=table_obj)
+            for table_name, table_obj in catalog.tables.items()
         }
 
-        ValidationReporter.print_result(results=results)
-        return results
+        if report:
+            ValidationReporter.print_results(results=validation_results)
 
-    def check_catalog_in_src(self) -> dict[str, TableValidationResult]:
-        return {
-            table_name: self.validator_factory.build_src_table_validation(table=table_obj).execute()
-            for table_name, table_obj in self.catalog.tables.items()
-        }
+        return  validation_results
 
-    def check_catalog_in_target(self) -> dict[str, TableValidationResult]:
-        return {
-            table_name: self.validator_factory.build_target_table_validation(table=table_obj).execute()
-            for table_name, table_obj in self.catalog.tables.items()
-        }
+    def validate_table(self, table: Table, report: bool = False) -> ValidationResult:
+        validation_result = ValidationResult(
+            source=self.check_in_src(table=table),
+            target=self.check_in_target(table=table),
+            watermark=self.check_watermark(table=table)
+        )
 
+        if report:
+            ValidationReporter.print_result(results=validation_result)
 
-    def run_watermark_checks(self) -> dict[str, WatermarkValidationResult]:
-        wm_validation_results = {}
+        return validation_result
 
-        for table_name, table_obj in self.catalog.tables.items():
-            watermark_validation_result = self.validator_factory.build_watermark_validation(table=table_obj).execute()
-            if not watermark_validation_result.exist:
-                watermark_resolution = self.resolver.sync_watermark(table=table_obj)
-                wm_validation_results[table_name] = WatermarkValidationResultResolved(
-                    exist=False,
-                    watermark=None,
-                    resolved=True,
-                    table=table_obj,
-                    resolution_type=watermark_resolution.resolution_type,
-                    synced_watermark=watermark_resolution.synced_watermark
-                )
-            else:
-                wm_validation_results[table_name] = watermark_validation_result
+    def check_in_src(self, table: Table) -> TableValidationResult:
+        return self.validator_factory.build_src_table_validation(table=table).execute()
 
-        ValidationReporter.print_watermark_result(results=wm_validation_results)
-        return wm_validation_results
+    def check_in_target(self, table: Table) -> TableValidationResult:
+        return self.validator_factory.build_target_table_validation(table=table).execute()
+
+    def check_watermark(self, table: Table) -> WatermarkValidationResult:
+        return self.validator_factory.build_watermark_validation(table=table).execute()

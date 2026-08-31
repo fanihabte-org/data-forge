@@ -48,7 +48,7 @@ class WatermarkRepository:
             }
 
     def load_from_main_table(self, conn: Connection, table: Table, schema_name: str) -> "Watermark | None":
-        with conn.cursor() as cur:
+        with conn.cursor(row_factory=class_row(Watermark)) as cur:
             query = self.summarize_watermark_query(table=table, schema_name=schema_name)
             return cur.execute(query).fetchone()
 

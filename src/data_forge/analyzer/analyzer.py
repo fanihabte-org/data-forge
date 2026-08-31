@@ -1,33 +1,41 @@
 from dataclasses import dataclass
 
+from psycopg import Connection
+
 from data_forge.analyzer.analyzes import VolumeAnalysis
 from data_forge.analyzer.reporter import AnalysesReporter
 from data_forge.context.context import Catalog
-from data_forge.db_services.source import SourceDB
+from data_forge.context.models import Table
 from data_forge.analyzer.factory import AnalyzerFactory
-from data_forge.db_services.target import TargetDW
 
 
 @dataclass
 class Analyzer:
     analyzer_factory: AnalyzerFactory
-    source_db: SourceDB
-    target_dw: TargetDW
-    catalog: Catalog
 
-    def analyze_volume(self) -> dict[str, VolumeAnalysis]:
-        tables = self.catalog.tables
+    def analyze_catalog(self, conn: Connection, catalog: Catalog, report: bool = False) -> dict[str, VolumeAnalysis]:
         volume_analyses = {}
-        with self.source_db.db_engine.build_connection() as conn:
-            for table_name, table_obj in tables.items():
-                volume_analyses[table_name] = self.analyzer_factory.analyze_volume(
-                    table=table_obj
-                ).execute(conn)
+
+        for table_name, table_obj in catalog.tables.items():
+            volume_analyses[table_name] = self.analyzer_factory.analyze_volume(
+                table=table_obj
+            ).execute(conn)
+
+        if report:
+            AnalysesReporter.report_analyses(
+                pipeline_name=catalog.source_name,
+                volume_analyses=volume_analyses
+            )
 
         return volume_analyses
 
-    def explain(self) -> None:
-        AnalysesReporter.print_report(
-            pipeline_name=self.catalog.source_name,
-            analyses=self.analyze_volume()
-        )
+    def analyze_table(self, source_name: str, conn: Connection, table: Table, report: bool = False) -> VolumeAnalysis:
+        volume_analysis = self.analyzer_factory.analyze_volume(table=table).execute(conn)
+
+        if report:
+            AnalysesReporter.report_analysis(
+                pipeline_name=source_name,
+                volume_analysis=volume_analysis
+            )
+
+        return volume_analysis

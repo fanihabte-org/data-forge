@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import datetime
+from typing import TYPE_CHECKING, Iterator
 
-from typing import TYPE_CHECKING
+from psycopg import Connection
 
-from data_forge.context.models import Table, PipelineConfig
+from data_forge.context.models import PipelineConfig
 
 if TYPE_CHECKING:
     from data_forge.db_engine.engine import DBEngine
-    from data_forge.logging.watermark import Watermark
 
 
 @dataclass
@@ -21,7 +20,7 @@ class SourceInterface(ABC):
         pass
 
     @abstractmethod
-    def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
+    def bulk_extract_after_watermark(self, conn: Connection, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
     @abstractmethod
@@ -42,14 +41,9 @@ class TargetInterface(SourceInterface):
         pass
 
     @abstractmethod
-    def bulk_insert_batches(self, sql_query: bytes, batches: list[tuple]):
+    def bulk_insert_batches(self, conn:Connection, sql_query: bytes, chunks: Iterator[bytes]):
         pass
 
     @abstractmethod
-    def insert_batches(self,
-                       batches: list[tuple],
-                       insert_into_query: bytes,
-                       table: Table,
-                       watermark: Watermark,
-                       run_datetime: datetime):
+    def insert_batches(self, batches: list[tuple], sql_query: bytes):
         pass

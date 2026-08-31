@@ -25,27 +25,14 @@ class Plan(ABC):
     run_datetime: datetime
     source_db: SourceDB
     table: Table
-    watermark: Watermark
     target_dw: TargetDW
     pipeline_config: PipelineConfig
     query_builder: QueryBuilder
+    watermark: Watermark
+    watermark_repository: WatermarkRepository
 
     def execute(self):
         ...
-
-
-@dataclass
-class WatermarkSyncPlan(Plan):
-    watermark_repository: WatermarkRepository
-    execution_type = ExecutionType.SYNC_WATERMARK
-
-    def execute(self):
-        with self.target_dw.db_engine.build_connection() as conn:
-            self.watermark_repository.sync(
-                conn=conn,
-                table=self.table,
-                schema_name=self.source_db.catalog.source_name
-            )
 
 
 @dataclass
@@ -62,17 +49,19 @@ class IncrementalPlan(Plan):
             format_query=True,
             table=self.table
         )
-
-        self.target_dw.insert_batches(
-            batches=self.source_db.extract_after_watermark(
-                sql_query=extract_incremental_query,
-                pipeline_config=self.pipeline_config
-            ),
-            insert_into_query=insert_into_query,
-            table=self.table,
-            watermark=self.watermark,
-            run_datetime=self.run_datetime
-        )
+        with self.target_dw.db_engine.build_connection() as target_conn:
+            self.target_dw.insert_batches(
+                batches=self.source_db.extract_after_watermark(
+                    sql_query=extract_incremental_query,
+                    pipeline_config=self.pipeline_config
+                ),
+                sql_query=insert_into_query,
+            )
+            self.watermark_repository.sync(
+                conn=target_conn,
+                table=self.table,
+                schema_name=self.source_db.catalog.source_name
+            )
 
 
 @dataclass
@@ -80,20 +69,26 @@ class BulkPlan(Plan):
     execution_type = ExecutionType.BULK
 
     def execute(self):
-        copy_from: bytes = self.query_builder.copy_binary_from(
-            table=self.table
-        )
-        copy_to: bytes = self.query_builder.copy_binary_to(
-            table=self.table
-        )
+        copy_out = self.query_builder.copy_binary_out(table=self.table)  # source
+        copy_in = self.query_builder.copy_binary_in(table=self.table)  # target
 
-        self.target_dw.bulk_insert_batches(
-            sql_query=copy_to,
-            batches=self.source_db.bulk_extract_after_watermark(
-                sql_query=copy_from,
-                pipeline_config=self.pipeline_config
-            )
-        )
+        with self.source_db.db_engine.build_connection() as source_conn, \
+                self.target_dw.db_engine.build_connection() as target_conn:
+            with self.source_db.bulk_extract_after_watermark(
+                    conn=source_conn,
+                    sql_query=copy_out,
+                    pipeline_config=self.pipeline_config,
+            ) as source_chunks:
+                self.target_dw.bulk_insert_batches(
+                    conn=target_conn,
+                    sql_query=copy_in,
+                    chunks=source_chunks,
+                )
+                self.watermark_repository.sync(
+                    conn=target_conn,
+                    table=self.table,
+                    schema_name=self.source_db.catalog.source_name
+                )
 
 
 @dataclass
@@ -101,4 +96,4 @@ class SkipPlan(Plan):
     execution_type = ExecutionType.SKIP
 
     def execute(self):
-        print(f"Skipped execution {self.table.name}")
+        print(f"Skipped execution for table: {self.table.name}")

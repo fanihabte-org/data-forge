@@ -18,6 +18,14 @@ class Table(BaseModel):
     columns: list[Column]
 
     @property
+    def target_columns(self):
+        return self.columns + [Column(name="dw_run_timestamp", type="TIMESTAMP", nullability="no")]
+
+    @property
+    def target_column_names(self) -> list[str]:
+        return [col.name for col in self.target_columns]
+
+    @property
     def column_names(self) -> list[str]:
         return [col.name for col in self.columns]
 
@@ -52,6 +60,8 @@ class Catalog(BaseModel):
             tables=tables_dict
         )
 
+    def get_table(self, table_name: str) -> Table:
+        return self.tables[table_name]
 
 class SalesForceConfig(BaseModel):
     base_url: str

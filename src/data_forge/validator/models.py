@@ -33,3 +33,9 @@ class TableValidationResult(BaseModel):
     table_name: str
     exists: bool
     column_validation: ColumnValidation
+
+
+class ValidationResult(BaseModel):
+    source: TableValidationResult
+    target: TableValidationResult
+    watermark: WatermarkValidationResult

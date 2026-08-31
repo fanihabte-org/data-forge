@@ -7,7 +7,7 @@ from data_forge.db_services.source import SourceDB
 from data_forge.db_services.target import TargetDW
 
 from data_forge.logging.watermark import WatermarkRepository
-from data_forge.planner.plans import BulkPlan, SkipPlan, IncrementalPlan, ExecutionType, WatermarkSyncPlan
+from data_forge.planner.plans import BulkPlan, SkipPlan, IncrementalPlan, ExecutionType
 
 
 @dataclass
@@ -44,7 +44,7 @@ class PlannerFactory:
             watermark=self.watermarks[table.name],
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
-            execution_type=ExecutionType.SKIP,
+            execution_type=ExecutionType.INCREMENTAL,
             query_builder=self.query_builder
         )
 
@@ -56,19 +56,6 @@ class PlannerFactory:
             watermark=self.watermarks[table.name],
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
-            execution_type=ExecutionType.SKIP,
+            execution_type=ExecutionType.BULK,
             query_builder=self.query_builder
-        )
-
-    def build_watermark_sync_plan(self, table: Table) -> WatermarkSyncPlan:
-        return WatermarkSyncPlan(
-            run_datetime=self.run_datetime,
-            source_db=self.source_db,
-            table=table,
-            watermark=self.watermarks[table.name],
-            target_dw=self.target_dw,
-            pipeline_config=self.pipeline_config,
-            execution_type=ExecutionType.SKIP,
-            query_builder=self.query_builder,
-            watermark_repository=self.watermark_repository
         )

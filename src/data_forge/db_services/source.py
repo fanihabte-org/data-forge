@@ -1,4 +1,7 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
+
+from psycopg import Connection
 
 from data_forge.context.context import Catalog, PipelineConfig
 from data_forge.db_engine.db_super_class import SourceInterface
@@ -32,11 +35,11 @@ class SourceDB(SourceInterface):
 
             print(f"{self.catalog.source_name}: read {total_rows} records")
 
-    def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
-        with self.db_engine.build_connection() as conn:
-            with conn.cursor().copy(sql_query) as copy:
-                for chunk in copy:
-                    yield chunk
+    @contextmanager
+    def bulk_extract_after_watermark(self, conn: Connection, sql_query: bytes, pipeline_config: PipelineConfig):
+        with conn.cursor() as cur:
+            with cur.copy(sql_query) as copy:
+                yield copy
 
     def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         ...

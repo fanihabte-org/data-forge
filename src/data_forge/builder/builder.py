@@ -62,6 +62,18 @@ class Builder:
                 source_name=source_name,
                 source_db_name=source_db_name,
                 target_dw_name=target_dw_name
+            ),
+            validator=self.validator(
+                source_name=source_name,
+                source_db_name=source_db_name,
+                target_dw_name=target_dw_name
+            ),
+            resolver=self.resolver(
+                source_name=source_name,
+            ),
+            analyzer=self.analyzer(
+                source_name=source_name,
+                target_dw_name=target_dw_name
             )
         )
 
@@ -101,28 +113,15 @@ class Builder:
                 source_db_name=source_db_name,
                 target_dw_name=target_dw_name
             ),
-            analyzer=self.analyzer(
-                source_name=source_name,
-                source_db_name=source_db_name,
-                target_dw_name=target_dw_name
-            ),
-            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog,
-            validator=self.validator(
-                source_name=source_name,
-                source_db_name=source_db_name,
-                target_dw_name=target_dw_name
-            )
+            source_name=source_name
         )
 
-    def analyzer(self, source_name: str, source_db_name: str, target_dw_name: str):
+    def analyzer(self, source_name: str, target_dw_name: str):
         return Analyzer(
             analyzer_factory=self.analyzer_factory(
-                source_name=source_db_name,
+                source_name=source_name,
                 target_dw_name=target_dw_name
-            ),
-            source_db=self.source_db(source=source_name, db_name=source_db_name),
-            catalog=self.source_db(source=source_name, db_name=source_db_name).catalog,
-            target_dw=self.target_dw(db_name=target_dw_name)
+            )
         )
 
     def planner_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
@@ -137,9 +136,6 @@ class Builder:
 
     def analyzer_factory(self, source_name: str, target_dw_name: str):
         return AnalyzerFactory(
-            pipeline_config=self.context().pipeline_config,
-            source_name=source_name,
-            run_datetime=self.run_datetime,
             target_dw=self.target_dw(db_name=target_dw_name),
             query_builder=self.query_builder(source_name=source_name),
             watermark_repository=self.watermark_repository()
@@ -151,16 +147,7 @@ class Builder:
                 source_name=source_name,
                 source_db_name=source_db_name,
                 target_dw_name=target_dw_name
-            ),
-            catalog=self.source_db(
-                db_name=source_db_name,
-                source=source_name
-            ).catalog,
-            resolver=self.resolver(
-                source_name=source_name,
-                target_dw_name=target_dw_name
             )
-
         )
 
     def validator_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
@@ -173,10 +160,9 @@ class Builder:
             query_builder=self.query_builder(source_name=source_name)
         )
 
-    def resolver(self, source_name: str, target_dw_name: str):
+    def resolver(self, source_name: str):
         return Resolver(
-            schema_name=source_name,
-            target_dw=self.target_dw(db_name=target_dw_name),
+            source_name=source_name,
             query_builder=self.query_builder(source_name=source_name),
             watermark_repository=self.watermark_repository()
         )

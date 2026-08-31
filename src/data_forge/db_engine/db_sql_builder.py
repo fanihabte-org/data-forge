@@ -2,7 +2,7 @@ from datetime import datetime
 from psycopg.sql import SQL, Identifier, Literal, Placeholder
 from pydantic.dataclasses import dataclass
 
-from data_forge.context.models import Table, PipelineConfig
+from data_forge.context.models import Table, PipelineConfig, Column
 from data_forge.logging.watermark import Watermark
 from data_forge.util.util import build_columns
 
@@ -39,19 +39,19 @@ class QueryBuilder:
         ).as_bytes()
 
     def insert_into(self, table: Table, format_query: bool = False) -> bytes:
-        value_placeholders = self.build_placeholder(len(table.column_names))
+        value_placeholders = self.build_placeholder(len(table.target_column_names))
 
         if format_query:
             return SQL("INSERT INTO {}.{} ({}) VALUES ({})").format(
                 Identifier(self.schema_name),
                 Identifier(table.name),
-                SQL(', ').join(map(Identifier, table.column_names)),
+                SQL(', ').join(map(Identifier, table.target_column_names)),
                 SQL(', ').join(value_placeholders)
             ).as_bytes()
 
         return SQL("INSERT INTO {} ({}) VALUES ({})").format(
             Identifier(table.name),
-            SQL(', ').join(map(Identifier, table.column_names)),
+            SQL(', ').join(map(Identifier, table.target_column_names)),
             SQL(', ').join(value_placeholders)
         ).as_bytes()
 
@@ -110,20 +110,29 @@ class QueryBuilder:
             FROM read_csv('{file_path}', header=True)
         """
 
-    def copy_binary_from(self, table: Table):
+    def copy_binary_in(self, table: Table):
         return SQL(
-            "COPY {}.{} FROM STDOUT (FORMAT BINARY)"
+            "COPY {}.{} ({}) FROM STDIN (FORMAT BINARY)"
         ).format(
             Identifier(self.schema_name),
-            Identifier(table.name)
+            Identifier(table.name),
+            SQL(', ').join(map(Identifier, table.target_column_names)),
         )
 
-    def copy_binary_to(self, table: Table):
+    def copy_binary_out(self, table: Table):
         return SQL(
-            "COPY {}.{} TO STDOUT (FORMAT BINARY)"
+            """
+            COPY (
+                SELECT 
+                    {}
+                    , {}::TIMESTAMP AS dw_run_timestamp 
+                FROM {}.{})
+            TO STDOUT (FORMAT BINARY)
+            """
         ).format(
-            Identifier(self.schema_name),
-            Identifier(table.name)
+            SQL(', ').join(map(Identifier, table.column_names)),
+            Literal(self.run_datetime),
+            Identifier(self.schema_name), Identifier(table.name)
         )
 
     def select_info(self, table: Table):
@@ -172,7 +181,7 @@ class QueryBuilder:
 
     def create_table(self, table: Table) -> bytes:
         formatted_columns = []
-        for col in table.columns:
+        for col in table.target_columns:
             col_sql = SQL("{} {}").format(
                 Identifier(col.name),
                 SQL(col.type)

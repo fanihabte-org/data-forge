@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime
 
-from data_forge.context.models import PipelineConfig, Table
+from psycopg import Connection
+
+from data_forge.context.models import PipelineConfig
 from data_forge.db_engine.db_super_class import TargetInterface
-from data_forge.logging.watermark import Watermark, WatermarkRepository
+from data_forge.logging.watermark import WatermarkRepository
 import duckdb
 
 
@@ -14,7 +15,7 @@ class TargetDW(TargetInterface):
     def extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
-    def bulk_extract_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
+    def bulk_extract_after_watermark(self, conn: Connection, sql_query: bytes, pipeline_config: PipelineConfig):
         pass
 
     def bulk_extract_to_csv_after_watermark(self, sql_query: bytes, pipeline_config: PipelineConfig):
@@ -29,32 +30,17 @@ class TargetDW(TargetInterface):
             conn.execute("Load postgres;")
             conn.execute(f"Attach '{self.db_engine.build_uri()}' as pg (TYPE postgres);")
 
-    def bulk_insert_batches(self, sql_query: bytes, batches: list[tuple]):
-        with self.db_engine.build_connection() as conn:
-            with conn.cursor().copy(sql_query) as copy:
-                for row in batches:
-                    copy.write_row(row)
+    def bulk_insert_batches(self, conn, sql_query, chunks):
+        total = 0
+        with conn.cursor().copy(sql_query) as copy:
+            for chunk in chunks:
+                copy.write(chunk)
+                total += len(chunk)
+                print(f"\r  {total / 1024 / 1024:,.1f} MB", end="", flush=True)
+        print()
 
-    def insert_batches(self,
-                       batches: list[tuple],
-                       insert_into_query: bytes,
-                       table: Table,
-                       watermark: Watermark,
-                       run_datetime: datetime
-                       ):
+    def insert_batches(self, batches: list[tuple], sql_query: bytes):
         with self.db_engine.build_connection() as conn:
-            print(f"EDI: built connection for: {self.db_engine.build_uri()}")
-
-            print(insert_into_query)
-            cur = conn.cursor()
-            total_rows = 0
-            for batch in batches:
-                cur.executemany(insert_into_query, batch)
-                batch_highest_watermark = batch[-1][table.mc_index].isoformat()
-                self.watermark_repository.upsert(
-                    watermark=watermark,
-                    new_highest_wm=batch_highest_watermark,
-                    conn=conn
-                )
-                total_rows += 1
-                print(f"Loaded {total_rows} rows and set highest watermark to {watermark.highest_watermark}")
+            with conn.cursor() as cur:
+                for batch in batches:
+                    cur.executemany(sql_query, batch)

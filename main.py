@@ -10,6 +10,5 @@ if __name__ == "__main__":
     erp_dbs_init = {"source_db_name": "erp", "source_name": "erp", "target_dw_name": "erae"}
     ops_dbs_init = {"source_db_name": "ops", "source_name": "ops", "target_dw_name": "erae"}
 
-    builder.planner(**ops_dbs_init).build_plan()
-
-
+    erp_pipline = builder.pipeline(**erp_dbs_init)
+    erp_pipline.run()
