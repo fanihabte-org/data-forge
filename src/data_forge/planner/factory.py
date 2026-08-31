@@ -33,7 +33,8 @@ class PlannerFactory:
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
             execution_type=ExecutionType.SKIP,
-            query_builder=self.query_builder
+            query_builder=self.query_builder,
+            watermark_repository=self.watermark_repository
         )
 
     def build_incremental_plan(self, table: Table) -> IncrementalPlan:
@@ -45,7 +46,8 @@ class PlannerFactory:
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
             execution_type=ExecutionType.INCREMENTAL,
-            query_builder=self.query_builder
+            query_builder=self.query_builder,
+            watermark_repository=self.watermark_repository
         )
 
     def build_bulk_plan(self, table: Table) -> BulkPlan:
@@ -57,5 +59,6 @@ class PlannerFactory:
             target_dw=self.target_dw,
             pipeline_config=self.pipeline_config,
             execution_type=ExecutionType.BULK,
-            query_builder=self.query_builder
+            query_builder=self.query_builder,
+            watermark_repository=self.watermark_repository
         )

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from data_forge.analyzer.analysis import VolumeAnalysis
 from data_forge.context.models import Table, Catalog
-from data_forge.planner.reporter import PlanReporter
+from data_forge.planner.plans_reporter import PlanReporter
 from data_forge.planner.plans import Plan
 from data_forge.planner.factory import PlannerFactory
 

@@ -24,6 +24,7 @@ class Resolver:
             )
         )
 
+
         if report:
             ResolutionReporter.print_water_sync_resolution(
                 water_sync_resolution=water_sync_resolution

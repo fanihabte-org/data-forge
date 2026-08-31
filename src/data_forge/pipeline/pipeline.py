@@ -55,11 +55,12 @@ class Pipeline:
                         conn=conn
                     )
 
-                self.resolver.sync_watermark(
-                    table=self.catalog.get_table(table_name=table_name),
-                    report=True,
-                    conn=conn
-                )
+                if not validation.watermark.exist:
+                    self.resolver.sync_watermark(
+                        table=self.catalog.get_table(table_name=table_name),
+                        report=True,
+                        conn=conn
+                    )
 
     def analyze(self) -> dict[str, VolumeAnalysis]:
         with self.source_db.db_engine.build_connection() as conn:
