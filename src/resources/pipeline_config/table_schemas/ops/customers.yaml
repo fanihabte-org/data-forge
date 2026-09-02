@@ -1,0 +1,46 @@
+columns:
+  - name: customer_id
+    type: INTEGER
+    nullability: "no"
+  - name: account_number
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: customer_name
+    type: VARCHAR(200)
+    nullability: "no"
+  - name: segment
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: industry
+    type: VARCHAR(60)
+    nullability: "no"
+  - name: region
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: company_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: country
+    type: VARCHAR(60)
+    nullability: "no"
+  - name: employee_count
+    type: INTEGER
+    nullability: "no"
+  - name: credit_limit_usd
+    type: NUMERIC(14,2)
+    nullability: "no"
+  - name: payment_terms_days
+    type: SMALLINT
+    nullability: "no"
+  - name: is_active
+    type: BOOLEAN
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ customer_id, updated_at ]

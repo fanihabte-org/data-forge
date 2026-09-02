@@ -1,0 +1,22 @@
+columns:
+  - name: company_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: company_name
+    type: VARCHAR(120)
+    nullability: "no"
+  - name: functional_currency
+    type: CHAR(3)
+    nullability: "no"
+  - name: country
+    type: VARCHAR(60)
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ company_code, updated_at ]

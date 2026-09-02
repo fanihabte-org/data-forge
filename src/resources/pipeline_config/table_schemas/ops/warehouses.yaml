@@ -1,0 +1,25 @@
+columns:
+  - name: warehouse_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: warehouse_name
+    type: VARCHAR(120)
+    nullability: "no"
+  - name: region
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: latitude
+    type: NUMERIC(9,5)
+    nullability: "no"
+  - name: longitude
+    type: NUMERIC(9,5)
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ warehouse_code, updated_at ]

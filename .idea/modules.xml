@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/dataforge.iml" filepath="$PROJECT_DIR$/.idea/dataforge.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/data-forge.iml" filepath="$PROJECT_DIR$/.idea/data-forge.iml" />
     </modules>
   </component>
 </project>

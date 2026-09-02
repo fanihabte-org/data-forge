@@ -1,0 +1,43 @@
+columns:
+  - name: order_id
+    type: BIGINT
+    nullability: "no"
+  - name: customer_id
+    type: INTEGER
+    nullability: "no"
+  - name: opportunity_ref
+    type: VARCHAR(18)
+    nullability: "yes"
+  - name: rep_id
+    type: VARCHAR(12)
+    nullability: "yes"
+  - name: order_date
+    type: DATE
+    nullability: "no"
+  - name: requested_delivery_date
+    type: DATE
+    nullability: "no"
+  - name: currency_code
+    type: CHAR(3)
+    nullability: "no"
+  - name: status
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: sales_channel
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: order_discount_pct
+    type: NUMERIC(5,2)
+    nullability: "no"
+  - name: po_number
+    type: VARCHAR(20)
+    nullability: "yes"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ order_id ]

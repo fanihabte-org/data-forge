@@ -8,7 +8,7 @@ WORKDIR /data-forge
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/data-forge/src"
 
-COPY pyproject.toml requirements.txt* uv.lock* ./
+COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen
 
 COPY . .

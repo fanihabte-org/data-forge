@@ -1,0 +1,40 @@
+columns:
+  - name: case_id
+    type: BIGINT
+    nullability: "no"
+  - name: customer_id
+    type: INTEGER
+    nullability: "no"
+  - name: case_type
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: priority
+    type: CHAR(2)
+    nullability: "no"
+  - name: channel
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: resolution_hours
+    type: NUMERIC(10,2)
+    nullability: "yes"
+  - name: status
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: csat_score
+    type: SMALLINT
+    nullability: "yes"
+  - name: assigned_region
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: opened_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ case_id ]

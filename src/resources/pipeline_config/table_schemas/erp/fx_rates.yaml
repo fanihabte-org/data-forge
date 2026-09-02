@@ -1,0 +1,31 @@
+columns:
+  - name: from_currency
+    type: CHAR(3)
+    nullability: "no"
+  - name: to_currency
+    type: CHAR(3)
+    nullability: "no"
+  - name: rate_type
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: rate
+    type: NUMERIC(18,8)
+    nullability: "no"
+  - name: source_system
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: rate_date
+    type: DATE
+    nullability: "no"
+  - name: loaded_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ from_currency, to_currency, updated_at ]

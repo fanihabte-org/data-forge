@@ -1,0 +1,55 @@
+columns:
+  - name: Id
+    type: VARCHAR(18)
+    nullability: "no"
+  - name: AccountId
+    type: VARCHAR(18)
+    nullability: "no"
+  - name: Name
+    type: VARCHAR(260)
+    nullability: "no"
+  - name: StageName
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: Amount
+    type: NUMERIC(18,2)
+    nullability: "yes"
+  - name: CurrencyIsoCode
+    type: CHAR(3)
+    nullability: "no"
+  - name: CloseDate
+    type: DATE
+    nullability: "no"
+  - name: Probability
+    type: SMALLINT
+    nullability: "no"
+  - name: LeadSource
+    type: VARCHAR(40)
+    nullability: "yes"
+  - name: CampaignId
+    type: VARCHAR(12)
+    nullability: "yes"
+  - name: DiscountPercent
+    type: NUMERIC(5,2)
+    nullability: "yes"
+  - name: LossReason
+    type: VARCHAR(40)
+    nullability: "yes"
+  - name: SalesCycleDays
+    type: INTEGER
+    nullability: "yes"
+  - name: OwnerId
+    type: VARCHAR(12)
+    nullability: "yes"
+  - name: CreatedDate
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: LastModifiedDate
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: IsDeleted
+    type: BOOLEAN
+    nullability: "no"
+
+marking_column: CreatedDate
+primary_keys: [ Id ]

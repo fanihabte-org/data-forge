@@ -1,0 +1,22 @@
+columns:
+  - name: gl_account
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: gl_name
+    type: VARCHAR(120)
+    nullability: "no"
+  - name: account_type
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: is_postable
+    type: BOOLEAN
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ gl_account, updated_at ]

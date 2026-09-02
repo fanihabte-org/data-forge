@@ -1,0 +1,25 @@
+columns:
+  - name: carrier_code
+    type: VARCHAR(15)
+    nullability: "no"
+  - name: carrier_name
+    type: VARCHAR(120)
+    nullability: "no"
+  - name: mode
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: cost_index
+    type: NUMERIC(6,3)
+    nullability: "no"
+  - name: published_otd_rate
+    type: NUMERIC(5,3)
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ carrier_code, updated_at ]

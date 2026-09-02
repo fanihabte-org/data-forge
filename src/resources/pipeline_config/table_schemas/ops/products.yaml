@@ -1,0 +1,40 @@
+columns:
+  - name: product_id
+    type: INTEGER
+    nullability: "no"
+  - name: sku
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: product_name
+    type: VARCHAR(200)
+    nullability: "no"
+  - name: category
+    type: VARCHAR(60)
+    nullability: "no"
+  - name: product_family
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: list_price_usd
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: standard_cost_usd
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: is_discontinued
+    type: BOOLEAN
+    nullability: "no"
+  - name: discontinued_on
+    type: DATE
+    nullability: "yes"
+  - name: launch_date
+    type: DATE
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ product_id, updated_at ]

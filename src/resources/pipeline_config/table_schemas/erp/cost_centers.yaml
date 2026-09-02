@@ -1,0 +1,37 @@
+columns:
+  - name: cost_center_code
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: cost_center_name
+    type: VARCHAR(120)
+    nullability: "no"
+  - name: company_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: region
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: function
+    type: VARCHAR(40)
+    nullability: "no"
+  - name: owner_email
+    type: VARCHAR(160)
+    nullability: "no"
+  - name: is_active
+    type: BOOLEAN
+    nullability: "no"
+  - name: valid_from
+    type: DATE
+    nullability: "no"
+  - name: valid_to
+    type: DATE
+    nullability: "yes"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: updated_at
+primary_keys: [ cost_center_code, updated_at ]

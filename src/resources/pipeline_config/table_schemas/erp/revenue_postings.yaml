@@ -1,0 +1,52 @@
+columns:
+  - name: posting_id
+    type: BIGINT
+    nullability: "no"
+  - name: document_number
+    type: VARCHAR(24)
+    nullability: "no"
+  - name: document_type
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: company_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: order_ref
+    type: BIGINT
+    nullability: "yes"
+  - name: reverses_posting_id
+    type: BIGINT
+    nullability: "yes"
+  - name: gl_account
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: cost_center_code
+    type: VARCHAR(20)
+    nullability: "yes"
+  - name: document_currency
+    type: CHAR(3)
+    nullability: "no"
+  - name: company_currency
+    type: CHAR(3)
+    nullability: "no"
+  - name: amount_doc
+    type: NUMERIC(18,2)
+    nullability: "no"
+  - name: amount_company
+    type: NUMERIC(18,2)
+    nullability: "no"
+  - name: fiscal_period
+    type: VARCHAR(7)
+    nullability: "no"
+  - name: posting_date
+    type: DATE
+    nullability: "no"
+  - name: posted_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ posting_id, created_at ]

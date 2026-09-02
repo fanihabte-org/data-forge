@@ -1,0 +1,49 @@
+columns:
+  - name: shipment_id
+    type: BIGINT
+    nullability: "no"
+  - name: order_id
+    type: BIGINT
+    nullability: "no"
+  - name: warehouse_code
+    type: VARCHAR(10)
+    nullability: "no"
+  - name: carrier_code
+    type: VARCHAR(15)
+    nullability: "no"
+  - name: service_level
+    type: VARCHAR(15)
+    nullability: "no"
+  - name: package_count
+    type: SMALLINT
+    nullability: "no"
+  - name: gross_weight_kg
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: distance_km
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: freight_cost_usd
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: tracking_number
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: promised_delivery_date
+    type: DATE
+    nullability: "no"
+  - name: ship_date
+    type: DATE
+    nullability: "no"
+  - name: delivered_date
+    type: DATE
+    nullability: "yes"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ shipment_id ]

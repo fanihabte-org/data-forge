@@ -1,0 +1,31 @@
+columns:
+  - name: invoice_id
+    type: BIGINT
+    nullability: "no"
+  - name: invoice_number
+    type: VARCHAR(24)
+    nullability: "no"
+  - name: order_id
+    type: BIGINT
+    nullability: "no"
+  - name: currency_code
+    type: CHAR(3)
+    nullability: "no"
+  - name: amount
+    type: NUMERIC(18,2)
+    nullability: "no"
+  - name: status
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: invoice_date
+    type: DATE
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ invoice_id ]

@@ -1,0 +1,34 @@
+columns:
+  - name: order_line_id
+    type: BIGINT
+    nullability: "no"
+  - name: order_id
+    type: BIGINT
+    nullability: "no"
+  - name: product_id
+    type: INTEGER
+    nullability: "no"
+  - name: quantity
+    type: INTEGER
+    nullability: "no"
+  - name: unit_price
+    type: NUMERIC(16,2)
+    nullability: "no"
+  - name: discount_pct
+    type: NUMERIC(5,2)
+    nullability: "no"
+  - name: line_amount
+    type: NUMERIC(18,2)
+    nullability: "no"
+  - name: unit_cost_usd
+    type: NUMERIC(12,2)
+    nullability: "no"
+  - name: created_at
+    type: TIMESTAMP
+    nullability: "no"
+  - name: updated_at
+    type: TIMESTAMP
+    nullability: "no"
+
+marking_column: created_at
+primary_keys: [ order_line_id ]
