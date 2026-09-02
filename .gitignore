@@ -3,3 +3,6 @@
 /src/resources/pipeline_config/pipeline_config.yaml
 .env
 .venv
+*.pyc
+__pycache__
+.DS_Store
