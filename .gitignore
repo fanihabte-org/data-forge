@@ -1,8 +1,5 @@
-/src/resources/pipeline_config/db_secrets.yaml
-/src/resources/pipeline_config/salesforce_config.yaml
-/src/resources/pipeline_config/pipeline_config.yaml
-.env
 .venv
 *.pyc
+.env
 __pycache__
 .DS_Store

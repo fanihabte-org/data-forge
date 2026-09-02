@@ -1,8 +1,13 @@
+import os
 import yaml
 from pathlib import Path
-from data_forge.context.models import Catalog, SalesForceConfig, PipelineConfig
 from dataclasses import dataclass
+from dotenv import load_dotenv
+
+from data_forge.context.models import Catalog, SalesForceConfig, PipelineConfig
 from data_forge.db_engine.engine import DBEngine
+
+load_dotenv()
 
 
 @dataclass(frozen=True)
@@ -18,7 +23,7 @@ class Context:
             pipeline_config=cls._load_pipeline_config(folder_path / "pipeline_config.yaml"),
             salesforce_config=cls._load_salesforce_config(folder_path / "salesforce_config.yaml"),
             catalogs=cls._load_catalogs(folder_path / "table_schemas"),
-            databases=cls._load_databases(folder_path / "db_secrets.yaml")
+            databases=cls._load_databases(folder_path / "db_secrets.yaml"),
         )
 
     def get_catalog(self, source: str) -> Catalog:
@@ -34,23 +39,29 @@ class Context:
         return self.pipeline_config
 
     @staticmethod
-    def _load_pipeline_config(secrets_path: Path):
-        with secrets_path.open() as pcf:
-            return PipelineConfig(**yaml.safe_load(pcf))
+    def _read_and_expand_yaml(path: Path) -> dict:
+        """Reads a YAML file and expands environment variables (e.g., ${VAR_NAME})."""
+        with path.open() as file:
+            expanded_content = os.path.expandvars(file.read())
+            return yaml.safe_load(expanded_content)
 
-    @staticmethod
-    def _load_databases(secrets_path: Path):
-        with secrets_path.open() as sfp:
-            data = yaml.safe_load(sfp)["databases"]
-            return {
-                db_name: DBEngine(**db_secrets)
-                for db_name, db_secrets in data.items()
-            }
+    @classmethod
+    def _load_pipeline_config(cls, secrets_path: Path):
+        data = cls._read_and_expand_yaml(secrets_path)
+        return PipelineConfig(**data)
 
-    @staticmethod
-    def _load_salesforce_config(config_path: Path):
-        with config_path.open() as cfp:
-            return SalesForceConfig(**yaml.safe_load(cfp))
+    @classmethod
+    def _load_databases(cls, secrets_path: Path):
+        data = cls._read_and_expand_yaml(secrets_path)["databases"]
+        return {
+            db_name: DBEngine(**db_secrets)
+            for db_name, db_secrets in data.items()
+        }
+
+    @classmethod
+    def _load_salesforce_config(cls, config_path: Path):
+        data = cls._read_and_expand_yaml(config_path)
+        return SalesForceConfig(**data)
 
     @classmethod
     def _load_catalogs(cls, table_schema_folder: Path):

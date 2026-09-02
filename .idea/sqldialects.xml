@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/ci-fixtures/crm/01_crm.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/erae/01_schema.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/erae/02_crm.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/erae/03_erp.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/erae/04_ops.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/erp/01_erp.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/ci-fixtures/ops/01_ops.sql" dialect="GenericSQL" />
+  </component>
+</project>

@@ -1,0 +1,59 @@
+services:
+
+  ops:
+    platform: linux/amd64
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${OPS_DBNAME}
+      POSTGRES_USER: ${OPS_USER}
+      POSTGRES_PASSWORD: ${OPS_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${OPS_USER} -d ${OPS_DBNAME}" ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./ci-fixtures/ops/:/docker-entrypoint-initdb.d:ro
+
+  erp:
+    platform: linux/amd64
+    image: postgres:16-alpine
+    depends_on:
+      - ops
+    environment:
+      POSTGRES_DB: ${ERP_DBNAME}
+      POSTGRES_USER: ${ERP_USER}
+      POSTGRES_PASSWORD: ${ERP_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ERP_USER} -d ${ERP_DBNAME}" ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./ci-fixtures/erp/:/docker-entrypoint-initdb.d:ro
+
+  erae:
+    depends_on:
+      - ops
+      - erp
+    platform: linux/amd64
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${ERAE_DBNAME}
+      POSTGRES_USER: ${ERAE_USER}
+      POSTGRES_PASSWORD: ${ERAE_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ERAE_USER} -d ${ERAE_DBNAME}" ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./ci-fixtures/erae/:/docker-entrypoint-initdb.d:ro
+
+  data-forge-ci:
+    depends_on:
+      - erp
+      - ops
+      - erae
+    build: .
+    image: fanihabte/data-forge:1.0.1
