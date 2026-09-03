@@ -20,4 +20,4 @@ ENV PATH="/data-forge/.venv/bin:$PATH"
 
 COPY . .
 
-ENTRYPOINT ["just", "run"]
+CMD ["just", "run"]
