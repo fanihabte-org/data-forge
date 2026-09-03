@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Pull repo to Prod
         env:
-          PROJECT_DIR: ${{ secrets.PROJECTS_DIR }}
+          PROJECT_DIR: ${{ secrets.PROJECT_DIR }}
         run: |
           cd "$PROJECT_DIR"
           git fetch origin main && git reset --hard origin/main
