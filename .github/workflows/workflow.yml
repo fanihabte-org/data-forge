@@ -18,6 +18,9 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v7
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: Build
         run: just ci-up
 
