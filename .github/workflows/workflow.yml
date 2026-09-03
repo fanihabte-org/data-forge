@@ -31,6 +31,7 @@ jobs:
     name: Deploy to Prod
     runs-on: [self-hosted, x64, linux]
     timeout-minutes: 10
+    needs: build-and-test
 
     steps:
       - name: Pull repo to Prod
