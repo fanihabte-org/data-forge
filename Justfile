@@ -16,4 +16,4 @@ ci-down:
 ci-run: ci-up ci-test ci-down
 
 pipeline:
-    docker compose run --rm data-forge
+    docker compose run -T --rm data-forge
