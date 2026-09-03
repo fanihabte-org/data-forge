@@ -1,0 +1,40 @@
+columns:
+  - name: Id
+    type: VARCHAR(18)
+    nullability: "no"
+  - name: Name
+    type: VARCHAR(200)
+    nullability: "no"
+  - name: AccountNumber
+    type: VARCHAR(20)
+    nullability: "no"
+  - name: Industry
+    type: VARCHAR(60)
+    nullability: "yes"
+  - name: Type
+    type: VARCHAR(40)
+    nullability: "yes"
+  - name: BillingCountry
+    type: VARCHAR(60)
+    nullability: "yes"
+  - name: AnnualRevenue
+    type: NUMERIC(18,2)
+    nullability: "yes"
+  - name: NumberOfEmployees
+    type: INTEGER
+    nullability: "yes"
+  - name: OwnerId
+    type: VARCHAR(12)
+    nullability: "yes"
+  - name: CreatedDate
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: LastModifiedDate
+    type: VARCHAR(30)
+    nullability: "no"
+  - name: IsDeleted
+    type: BOOLEAN
+    nullability: "no"
+
+marking_column: LastModifiedDate
+primary_keys: [ Id, LastModifiedDate ]

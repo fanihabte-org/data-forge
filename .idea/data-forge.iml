@@ -6,9 +6,6 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/.env" />
-      <excludeFolder url="file://$MODULE_DIR$/src/resources/pipeline_config/db_secrets.yaml" />
-      <excludeFolder url="file://$MODULE_DIR$/src/resources/pipeline_config/pipeline_config.yaml" />
-      <excludeFolder url="file://$MODULE_DIR$/src/resources/pipeline_config/salesforce_config.yaml" />
     </content>
     <orderEntry type="jdk" jdkName="uv (DataForge)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

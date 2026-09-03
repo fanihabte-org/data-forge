@@ -19,7 +19,8 @@ services:
     platform: linux/amd64
     image: postgres:16-alpine
     depends_on:
-      - ops
+      ops:
+        condition: service_healthy
     environment:
       POSTGRES_DB: ${ERP_DBNAME}
       POSTGRES_USER: ${ERP_USER}
@@ -34,8 +35,10 @@ services:
 
   erae:
     depends_on:
-      - ops
-      - erp
+      ops:
+        condition: service_healthy
+      erp:
+        condition: service_healthy
     platform: linux/amd64
     image: postgres:16-alpine
     environment:
@@ -52,8 +55,11 @@ services:
 
   data-forge-ci:
     depends_on:
-      - erp
-      - ops
-      - erae
-    build: .
+      ops:
+        condition: service_healthy
+      erp:
+        condition: service_healthy
+      erae:
+        condition: service_healthy
     image: fanihabte/data-forge:1.0.1
+    env_file: .env.ci

@@ -1,10 +1,4 @@
 services:
   data-forge:
-    build: .
     image: fanihabte/data-forge:1.0.1
-    volumes:
-      - ./src/resources/pipeline_config/db_secrets.yaml:/data-forge/src/resources/pipeline_config/db_secrets.yaml
-      - ./src/resources/pipeline_config/salesforce_config.yaml:/data-forge/src/resources/pipeline_config/salesforce_config.yaml
-      - ./src/resources/pipeline_config/pipeline_config.yaml:/data-forge/src/resources/pipeline_config/pipeline_config.yaml
-    env_file:
-      - ${ENV_FILE:-.env}
+    env_file: .env

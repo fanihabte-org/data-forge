@@ -1,0 +1,4 @@
+export_path: "/srv/data/northwind/exports"
+chunk_size: 10_000
+watermark_table_schema: pipeline_run
+watermark_table_name: watermark_logs

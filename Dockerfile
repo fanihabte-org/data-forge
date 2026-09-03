@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/data-forge/src"
 
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --frozen
+RUN uv sync --locked
 
 # Point PATH directly to the .venv created by uv
 ENV PATH="/data-forge/.venv/bin:$PATH"
