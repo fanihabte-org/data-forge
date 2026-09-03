@@ -17,3 +17,6 @@ ci-run: ci-up ci-test ci-down
 
 pipeline:
     docker compose run -T --rm data-forge
+
+deploy-test:
+    docker compose run data-forge uv run pytest

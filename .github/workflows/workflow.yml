@@ -40,4 +40,4 @@ jobs:
         run: |
           cd "$PROJECT_DIR"
           git fetch origin main && git reset --hard origin/main
-          just pipeline
+          docker compose run data-forge uv run pytest
