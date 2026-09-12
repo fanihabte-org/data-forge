@@ -1,15 +1,11 @@
-from abc import ABC
-from datetime import datetime
 from enum import Enum
-
-from data_forge.context.models import Table, PipelineConfig
-from data_forge.db_engine.db_sql_builder import QueryBuilder
-from data_forge.db_services.source import SourceDB
-from data_forge.db_services.target import TargetDW
-
-from data_forge.logging.watermark import Watermark, WatermarkRepository
-
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+from data_forge.context.models import Table
+from data_forge.watermark.models import Watermark
+from data_forge.contracts.source_interface import SourceInterface
+from data_forge.contracts.target_interface import TargetInterface
 
 
 class ExecutionType(Enum):
@@ -22,17 +18,14 @@ class ExecutionType(Enum):
 @dataclass
 class Plan(ABC):
     execution_type: ExecutionType
-    run_datetime: datetime
-    source_db: SourceDB
+    source: SourceInterface
+    target: TargetInterface
     table: Table
-    target_dw: TargetDW
-    pipeline_config: PipelineConfig
-    query_builder: QueryBuilder
     watermark: Watermark
-    watermark_repository: WatermarkRepository
 
+    @abstractmethod
     def execute(self):
-        ...
+        pass
 
 
 @dataclass
@@ -40,27 +33,17 @@ class IncrementalPlan(Plan):
     execution_type = ExecutionType.INCREMENTAL
 
     def execute(self):
-        extract_incremental_query: bytes = self.query_builder.select_all_with_metadata_after_watermark(
-            format_query=True,
-            watermark=self.watermark,
-            table=self.table
-        )
-        insert_into_query: bytes = self.query_builder.insert_into(
-            format_query=True,
-            table=self.table
-        )
-        with self.target_dw.db_engine.build_connection() as target_conn:
-            self.target_dw.insert_batches(
-                batches=self.source_db.extract_after_watermark(
-                    sql_query=extract_incremental_query,
-                    pipeline_config=self.pipeline_config
+        with self.target.transaction() as target_conn:
+            self.target.insert_batches(
+                batches=self.source.extract_after_watermark(
+                    table=self.table,
+                    watermark=self.watermark
                 ),
-                sql_query=insert_into_query,
-            )
-            self.watermark_repository.sync(
-                conn=target_conn,
                 table=self.table,
-                schema_name=self.source_db.catalog.source_name
+                conn=target_conn
+            )
+            self.target.sync_watermark(
+                conn=target_conn, table=self.table
             )
 
 
@@ -69,25 +52,18 @@ class BulkPlan(Plan):
     execution_type = ExecutionType.BULK
 
     def execute(self):
-        copy_out = self.query_builder.copy_binary_out(table=self.table)  # source
-        copy_in = self.query_builder.copy_binary_in(table=self.table)  # target
-
-        with self.source_db.db_engine.build_connection() as source_conn, \
-                self.target_dw.db_engine.build_connection() as target_conn:
-            with self.source_db.bulk_extract_after_watermark(
-                    conn=source_conn,
-                    sql_query=copy_out,
-                    pipeline_config=self.pipeline_config,
+        with self.target.transaction() as target_conn:
+            with self.source.bulk_extract_after_watermark(
+                table=self.table,
+                watermark=self.watermark
             ) as source_chunks:
-                self.target_dw.bulk_insert_batches(
-                    conn=target_conn,
-                    sql_query=copy_in,
-                    chunks=source_chunks,
-                )
-                self.watermark_repository.sync(
-                    conn=target_conn,
+                self.target.bulk_insert_batches(
                     table=self.table,
-                    schema_name=self.source_db.catalog.source_name
+                    batches=source_chunks,
+                    conn=target_conn
+                )
+                self.target.sync_watermark(
+                    conn=target_conn, table=self.table
                 )
 
 

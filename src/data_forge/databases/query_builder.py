@@ -2,8 +2,8 @@ from datetime import datetime
 from psycopg.sql import SQL, Identifier, Literal, Placeholder
 from pydantic.dataclasses import dataclass
 
-from data_forge.context.models import Table, PipelineConfig, Column
-from data_forge.logging.watermark import Watermark
+from data_forge.context.models import Table, PipelineConfig
+from data_forge.watermark.models import Watermark
 from data_forge.util.util import build_columns
 
 
@@ -135,6 +135,26 @@ class QueryBuilder:
             Identifier(self.schema_name), Identifier(table.name)
         )
 
+    def copy_binary_out_after_watermark(self, table: Table, watermark: Watermark):
+        return SQL(
+            """
+            COPY (
+                SELECT 
+                    {}
+                    , {}::TIMESTAMP AS dw_run_timestamp 
+                FROM {}.{}
+                WHERE {} > {}
+            )
+            TO STDOUT (FORMAT BINARY)
+            """
+        ).format(
+            SQL(', ').join(map(Identifier, table.column_names)),
+            Literal(self.run_datetime),
+            Identifier(self.schema_name), Identifier(table.name),
+            Identifier(watermark.marking_column),
+            Literal(watermark.highest_watermark)
+        )
+
     def select_info(self, table: Table):
         return SQL(
             """
@@ -210,4 +230,57 @@ class QueryBuilder:
             Identifier(table.name),
             SQL(",\n    ").join(formatted_columns),
             pk_clause
+        ).as_bytes()
+
+    def upsert_watermark_query(self, columns: list[str]) -> bytes:
+
+        return SQL("""
+                   INSERT INTO {}.{} ({})
+                   VALUES ({})
+                   ON CONFLICT ({})
+                       DO
+                   UPDATE SET
+                       highest_watermark = GREATEST({}.{}.highest_watermark, EXCLUDED.highest_watermark),
+                       dw_run_timestamp = GREATEST({}.{}.dw_run_timestamp, EXCLUDED.dw_run_timestamp)
+                   """).format(
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name),
+            SQL(', ').join(map(Identifier, columns)),
+            SQL(', ').join(self.build_placeholder(len(columns))),
+            Identifier("table_name"),
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name),
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name)
+        ).as_bytes()
+
+    @staticmethod
+    def summarize_watermark_query(table: Table, schema_name: str) -> bytes:
+        return SQL("""
+                   SELECT
+                       {} AS source_system, {} AS table_name, {} AS schema_name, {} AS marking_column, MAX ({}) AS highest_watermark, MAX (dw_run_timestamp) AS dw_run_timestamp
+                   FROM {}.{}
+                   GROUP BY 1, 2, 3, 4
+                   """).format(
+            Literal(schema_name),
+            Literal(table.name),
+            Literal(schema_name),
+            Literal(table.marking_column),
+            Identifier(table.marking_column),
+            Identifier(schema_name),
+            Identifier(table.name)
+        ).as_bytes()
+
+    def select_watermarks_query(self) -> bytes:
+        return SQL("SELECT * FROM {}.{}").format(
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name)
+        ).as_bytes()
+
+
+    def select_watermark_query(self, table_name: str) -> bytes:
+        return SQL("SELECT * FROM {}.{} WHERE table_name = {}").format(
+            Identifier(self.pipeline_config.watermark_table_schema),
+            Identifier(self.pipeline_config.watermark_table_name),
+            Literal(table_name)
         ).as_bytes()

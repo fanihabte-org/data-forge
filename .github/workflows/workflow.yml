@@ -34,6 +34,9 @@ jobs:
     needs: build-and-test
 
     steps:
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: Pull repo to Prod
         env:
           PROJECT_DIR: ${{ secrets.PROJECT_DIR }}

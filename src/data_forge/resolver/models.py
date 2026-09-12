@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel
 from data_forge.context.models import Table
-from data_forge.logging.watermark import Watermark
+from data_forge.watermark.models import Watermark
 
 
 class ResolutionType(Enum):

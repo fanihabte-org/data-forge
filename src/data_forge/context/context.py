@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 
 from data_forge.context.models import Catalog, SalesForceConfig, PipelineConfig
-from data_forge.db_engine.engine import DBEngine
+from data_forge.databases.engine import DBEngine
 
 load_dotenv()
 

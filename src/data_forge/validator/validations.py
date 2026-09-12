@@ -1,31 +1,31 @@
 from abc import ABC
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from psycopg import Connection
-from psycopg.rows import class_row
 
-from data_forge.context.models import Table, Column
-from data_forge.db_engine.db_sql_builder import QueryBuilder
-from data_forge.db_engine.engine import DBEngine
-from data_forge.logging.watermark import Watermark, WatermarkRepository
-from data_forge.validator.models import TableValidationResult, TableInfo, ColumnValidation, WatermarkValidationResult
+from data_forge.context.models import Table
+from data_forge.contracts.source_interface import SourceInterface
+from data_forge.contracts.target_interface import TargetInterface
+from data_forge.watermark.models import Watermark
+from data_forge.validator.models import TableValidationResult, ColumnValidation, WatermarkValidationResult
 
 
 @dataclass
 class Validations(ABC):
     table: Table
-    db_engine: DBEngine
-    query_builder: QueryBuilder
+    interface: TargetInterface | SourceInterface
 
 
 @dataclass
 class TableValidation(Validations):
 
+
     def execute(self) -> TableValidationResult:
         """Validates a single table over an existing connection."""
-        with self.db_engine.build_connection() as conn:
-            tables_info = self._fetch_tables_info(conn)
-            table_exists = any(t.table_name == self.table.name for t in tables_info)
+        with self.interface.transaction() as conn:
+            table_detail = self.interface.fetch_table_detail(conn=conn, table=self.table)
+            table_exists = table_detail.info.table_name == self.table.name
 
             if not table_exists:
                 return TableValidationResult(
@@ -36,8 +36,7 @@ class TableValidation(Validations):
                         missing_columns=[c.name for c in self.table.columns])
                 )
 
-            db_columns = self._fetch_table_columns(conn)
-            db_col_names = {c.name for c in db_columns}
+            db_col_names = {c.name for c in table_detail.columns}
             needed_col_names = {c.name for c in self.table.columns}
             missing = list(needed_col_names - db_col_names)
 
@@ -50,25 +49,16 @@ class TableValidation(Validations):
                 )
             )
 
-    def _fetch_tables_info(self, conn: Connection) -> list[TableInfo]:
-        with conn.cursor(row_factory=class_row(TableInfo)) as cur:
-            return cur.execute(self.query_builder.select_info(table=self.table)).fetchall()
-
-    def _fetch_table_columns(self, conn: Connection) -> list[Column]:
-        with conn.cursor(row_factory=class_row(Column)) as cur:
-            return cur.execute(self.query_builder.select_columns_info(table=self.table)).fetchall()
-
 
 @dataclass
 class TableWatermarkValidation(Validations):
-    watermark_repository: WatermarkRepository
 
     def execute(self) -> WatermarkValidationResult:
-        with self.db_engine.build_connection() as conn:
+        with self.interface.transaction() as conn:
             return self._fetch_table_watermark(conn)
 
     def _fetch_table_watermark(self, conn: Connection) -> WatermarkValidationResult:
-        watermark = self.watermark_repository.fetch_watermark_for_table(
+        watermark = self.interface.fetch_watermark(
             conn=conn, table=self.table
         )
         return WatermarkValidationResult(

@@ -34,7 +34,7 @@ class Validator:
         return validation_result
 
     def check_in_src(self, table: Table) -> TableValidationResult:
-        return self.validator_factory.build_src_table_validation(table=table).execute()
+        return self.validator_factory.build_source_table_validation(table=table).execute()
 
     def check_in_target(self, table: Table) -> TableValidationResult:
         return self.validator_factory.build_target_table_validation(table=table).execute()

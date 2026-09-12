@@ -5,24 +5,24 @@ from dataclasses import dataclass, field
 
 from data_forge.analyzer.analyzer import Analyzer
 from data_forge.analyzer.factory import AnalyzerFactory
-from data_forge.db_engine.db_sql_builder import QueryBuilder
+from data_forge.databases.postgres.postgres_target import TargetPostgresDB
+from data_forge.databases.query_builder import QueryBuilder
 from data_forge.planner.factory import PlannerFactory
 from data_forge.resolver.resolver import Resolver
-from data_forge.sales_force.auth import Auth
+from data_forge.salesforce.auth import Auth
 
 from data_forge.context.context import Context
 from data_forge.pipeline.pipeline import Pipeline
 
-from data_forge.db_services.target import TargetDW
-from data_forge.db_services.source import SourceDB
-from data_forge.logging.watermark import WatermarkRepository
+from data_forge.databases.postgres.postgres_source import SourcePostgresDB
+from data_forge.watermark.pg_wm_repository import PostgresWatermarkRepository
 
-from data_forge.sales_force.sales_force import SalesForce
-from data_forge.FileStorage.FileStorage import FileStorage
-from data_forge.sales_force.sf_request import SalesForceRequest
-from data_forge.planner.planner import Planner
+from data_forge.salesforce.salesforce import SalesForce
+from data_forge.stroage.file_storage import FileStorage
+from data_forge.salesforce.request import SalesForceRequest
+from data_forge.planner.service import Planner
 from data_forge.validator.factory import ValidatorFactory
-from data_forge.validator.validator import Validator
+from data_forge.validator.service import Validator
 
 
 @dataclass
@@ -42,38 +42,49 @@ class Builder:
             base_url=salesforce_config.get_base_url()
         )
 
-    def source_db(self, db_name: str, source: str):
-        return SourceDB(
-            catalog=self.context().get_catalog(source=source),
-            db_engine=self.engine(db_name=db_name)
+    def target_postgres_db(self, source_name: str, target_db_name: str):
+        return TargetPostgresDB(
+            db_engine=self.engine(db_name=target_db_name),
+            query_builder=self.query_builder(source_name=source_name),
+            catalog=self.context().get_catalog(source=source_name),
+            chunk_size=self.context().pipeline_config.chunk_size,
+            file_storage=self.file_storage(),
+            watermark_repository=self.watermark_repository(source_name=source_name)
         )
 
-    def target_dw(self, db_name: str):
-        return TargetDW(
-            db_engine=self.engine(db_name=db_name),
-            watermark_repository=self.watermark_repository()
+    def source_postgres_db(self, source_name: str, source_db_name: str):
+        return SourcePostgresDB(
+            db_engine=self.engine(db_name=source_db_name),
+            query_builder=self.query_builder(source_name=source_name),
+            catalog=self.context().get_catalog(source=source_name),
+            chunk_size=self.context().pipeline_config.chunk_size,
+            file_storage=self.file_storage(),
+            watermark_repository=self.watermark_repository(source_name=source_name)
         )
 
-    def pipeline(self, source_db_name: str, target_dw_name: str, source_name: str):
+    def pipeline(self, source_db_name: str, target_db_name: str, source_name: str):
         return Pipeline(
-            source_db=self.source_db(source=source_name, db_name=source_db_name),
-            target_dw=self.target_dw(db_name=target_dw_name),
+            source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
+            catalog=self.context().get_catalog(source=source_name),
             planner=self.planner(
                 source_name=source_name,
                 source_db_name=source_db_name,
-                target_dw_name=target_dw_name
+                target_db_name=target_db_name
             ),
             validator=self.validator(
                 source_name=source_name,
                 source_db_name=source_db_name,
-                target_dw_name=target_dw_name
+                target_db_name=target_db_name
             ),
             resolver=self.resolver(
                 source_name=source_name,
+                target_db_name=target_db_name
             ),
             analyzer=self.analyzer(
                 source_name=source_name,
-                target_dw_name=target_dw_name
+                target_db_name=target_db_name,
+                source_db_name=source_db_name
             )
         )
 
@@ -96,75 +107,65 @@ class Builder:
             auth=self.auth()
         )
 
-    def watermark_repository(self):
-        pipeline_config = self.context().pipeline_config
-        return WatermarkRepository(
-            pipeline_config=pipeline_config,
+    def watermark_repository(self, source_name: str):
+        return PostgresWatermarkRepository(
+            query_builder=self.query_builder(source_name=source_name),
             run_datetime=self.run_datetime
         )
 
     def engine(self, db_name):
         return self.context().get_engine(db_name=db_name)
 
-    def planner(self, source_name: str, source_db_name: str, target_dw_name: str):
+    def planner(self, source_name: str, source_db_name: str, target_db_name: str):
         return Planner(
+            source_name=source_name,
             planner_factory=self.planner_factory(
                 source_name=source_name,
                 source_db_name=source_db_name,
-                target_dw_name=target_dw_name
-            ),
-            source_name=source_name
-        )
-
-    def analyzer(self, source_name: str, target_dw_name: str):
-        return Analyzer(
-            analyzer_factory=self.analyzer_factory(
-                source_name=source_name,
-                target_dw_name=target_dw_name
+                target_db_name=target_db_name
             )
         )
 
-    def planner_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
+    def analyzer(self, source_name: str, source_db_name: str, target_db_name: str):
+        return Analyzer(
+            analyzer_factory=self.analyzer_factory(
+                source_name=source_name,
+                target_db_name=target_db_name,
+                source_db_name=source_db_name
+            )
+        )
+
+    def planner_factory(self, source_name: str, source_db_name: str, target_db_name: str):
         return PlannerFactory(
-            pipeline_config=self.context().pipeline_config,
-            source_db=self.source_db(source=source_name, db_name=source_db_name),
-            target_dw=self.target_dw(db_name=target_dw_name),
-            watermark_repository=self.watermark_repository(),
-            run_datetime=self.run_datetime,
-            query_builder=self.query_builder(source_name=source_name)
+            source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
 
-    def analyzer_factory(self, source_name: str, target_dw_name: str):
+    def analyzer_factory(self, source_name: str, source_db_name: str, target_db_name: str):
         return AnalyzerFactory(
-            target_dw=self.target_dw(db_name=target_dw_name),
-            query_builder=self.query_builder(source_name=source_name),
-            watermark_repository=self.watermark_repository()
+            source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
 
-    def validator(self, source_name: str, source_db_name: str, target_dw_name: str):
+    def validator(self, source_name: str, source_db_name: str, target_db_name: str):
         return Validator(
             validator_factory=self.validator_factory(
                 source_name=source_name,
                 source_db_name=source_db_name,
-                target_dw_name=target_dw_name
+                target_db_name=target_db_name
             )
         )
 
-    def validator_factory(self, source_name: str, source_db_name: str, target_dw_name: str):
+    def validator_factory(self, source_name: str, source_db_name: str, target_db_name: str):
         return ValidatorFactory(
-            pipeline_config=self.context().pipeline_config,
-            source_db=self.source_db(source=source_name, db_name=source_db_name),
-            target_dw=self.target_dw(db_name=target_dw_name),
-            run_datetime=self.run_datetime,
-            watermark_repository=self.watermark_repository(),
-            query_builder=self.query_builder(source_name=source_name)
+            source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
 
-    def resolver(self, source_name: str):
+    def resolver(self, source_name: str, target_db_name: str):
         return Resolver(
             source_name=source_name,
-            query_builder=self.query_builder(source_name=source_name),
-            watermark_repository=self.watermark_repository()
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name)
         )
 
     def query_builder(self, source_name: str):

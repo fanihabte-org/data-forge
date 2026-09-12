@@ -1,8 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel
 
-from data_forge.context.models import Table
-from data_forge.logging.watermark import Watermark
+from data_forge.context.models import Table, Column
+from data_forge.watermark.models import Watermark
 from data_forge.resolver.models import ResolutionType
 
 
@@ -11,6 +11,10 @@ class TableInfo(BaseModel):
     table_name: str
     estimated_rows: int
 
+class TableDetail(BaseModel):
+    table: Table
+    info: TableInfo
+    columns: list[Column]
 
 class ColumnValidation(BaseModel):
     all_exist: bool

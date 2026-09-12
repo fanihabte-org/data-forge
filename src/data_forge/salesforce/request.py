@@ -1,7 +1,7 @@
 import requests
 
 from dataclasses import dataclass
-from data_forge.sales_force.auth import Auth
+from data_forge.salesforce.auth import Auth
 
 
 @dataclass
