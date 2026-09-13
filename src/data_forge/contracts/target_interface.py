@@ -34,7 +34,7 @@ class TargetInterface(ABC):
         pass
 
     @abstractmethod
-    def fetch_table_detail(self, conn: Connection, table: Table) -> TableDetail:
+    def fetch_table_detail(self, table: Table) -> TableDetail:
         pass
 
     @abstractmethod

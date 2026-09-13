@@ -1,23 +1,45 @@
+from dataclasses import dataclass
 from datetime import datetime
 
-from data_forge.util.util import build_columns
-from data_forge.watermark.watermark import Watermark
+from data_forge.context.models import Table, PipelineConfig
+from data_forge.watermark.models import Watermark
 
 
-def select_all_query(table_name: str, columns: list[str]) -> str:
-    columns = build_columns(columns)
+@dataclass
+class SoqlBuilder:
+    schema_name: str
+    run_datetime: datetime
+    pipeline_config: PipelineConfig
 
-    return f"select {columns} from {table_name.title()}"
+    @staticmethod
+    def build_columns(column_names: list[str]):
+        return ", ".join(column_names)
 
+    def select_all_query(self, table: Table) -> str:
+        columns = self.build_columns(table.column_names)
 
-def select_all_after_watermark(watermark: Watermark, columns: list[str]) -> str:
-    columns = build_columns(columns)
-    return f"select {columns} from {watermark.table_name.title()} where LastModifiedDate > '{watermark.highest_watermark.isoformat()}' order by LastModifiedDate"
+        return f"SELECT {columns} FROM {table.name}"
 
+    def select_all_after_watermark(self, table: Table, watermark: Watermark) -> str:
+        columns = self.build_columns(table.column_names)
 
-def execution_planner(table_name: str, highest_mark: datetime, marking_column: str):
-    return f"select count(*) as records_count from {table_name.title()} where {marking_column} > {highest_mark}"
+        return f"""
+            SELECT 
+                {columns} 
+            FROM {table.name} 
+            WHERE {table.marking_column} > '{watermark.highest_watermark.isoformat()}' 
+            ORDER BY {table.marking_column}
+        """
 
+    @staticmethod
+    def execution_planner(table: Table, watermark: Watermark):
+        return f"""
+            SELECT 
+                COUNT(*) AS records_count 
+            FROM {table.name} 
+            WHERE {table.marking_column} > {watermark.highest_watermark}
+        """
 
-def check_records(table_name: str):
-    return f"select count(*) as records_count from {table_name.title()}"
+    @staticmethod
+    def check_records(self, table: Table):
+        return f"SELECT COUNT(*) AS records_count FROM {table.name}"

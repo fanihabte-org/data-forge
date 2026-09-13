@@ -1,4 +1,4 @@
 services:
   data-forge:
-    image: fanihabte/data-forge:1.0.1
+    build: .
     env_file: .env

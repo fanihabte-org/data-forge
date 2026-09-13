@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Mapping
-from data_forge.analyzer.analyzes import VolumeAnalysis
+from data_forge.analyzer.models import VolumeAnalysis
 
 # ANSI Terminal Colors & Formatting
 GREEN = "\033[92m"

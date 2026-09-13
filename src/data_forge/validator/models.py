@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from data_forge.context.models import Table, Column
 from data_forge.watermark.models import Watermark
-from data_forge.resolver.models import ResolutionType
 
 
 class TableInfo(BaseModel):
@@ -11,10 +10,12 @@ class TableInfo(BaseModel):
     table_name: str
     estimated_rows: int
 
+
 class TableDetail(BaseModel):
     table: Table
     info: TableInfo
     columns: list[Column]
+
 
 class ColumnValidation(BaseModel):
     all_exist: bool
@@ -25,12 +26,6 @@ class WatermarkValidationResult(BaseModel):
     exist: bool
     resolved: bool
     watermark: Optional[Watermark]
-
-
-class WatermarkValidationResultResolved(WatermarkValidationResult):
-    table: Table
-    resolution_type: ResolutionType
-    synced_watermark: Watermark
 
 
 class TableValidationResult(BaseModel):

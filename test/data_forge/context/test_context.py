@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from data_forge.builder.builder import Builder
-from data_forge.context.context import Context
+from data_forge.context.service import Context
 from data_forge.context.models import Catalog
-from data_forge.db_engine.engine import DBEngine
+from data_forge.databases.engine import DBEngine
 
 config_path = Path(__file__).resolve().parent.parent.parent / "resources/pipeline_config_test"
 builder = Builder(config_folder_path=config_path)

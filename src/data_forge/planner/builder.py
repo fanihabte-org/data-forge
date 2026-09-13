@@ -8,7 +8,7 @@ from data_forge.planner.plans import BulkPlan, SkipPlan, IncrementalPlan, Execut
 
 
 @dataclass
-class PlannerFactory:
+class PlanBuilder:
     source: SourceInterface
     target: TargetInterface
 
@@ -17,7 +17,7 @@ class PlannerFactory:
         with self.target.transaction() as conn:
             return self.target.fetch_watermarks(conn=conn)
 
-    def build_skip_plan(self, table: Table) -> SkipPlan:
+    def skip_plan(self, table: Table) -> SkipPlan:
         return SkipPlan(
             source=self.source,
             target=self.target,
@@ -26,7 +26,7 @@ class PlannerFactory:
             execution_type=ExecutionType.SKIP
         )
 
-    def build_incremental_plan(self, table: Table) -> IncrementalPlan:
+    def incremental_plan(self, table: Table) -> IncrementalPlan:
         return IncrementalPlan(
             source=self.source,
             target=self.target,
@@ -35,7 +35,7 @@ class PlannerFactory:
             execution_type=ExecutionType.INCREMENTAL
         )
 
-    def build_bulk_plan(self, table: Table) -> BulkPlan:
+    def bulk_plan(self, table: Table) -> BulkPlan:
         return BulkPlan(
             source=self.source,
             target=self.target,

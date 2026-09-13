@@ -4,7 +4,6 @@ from pydantic.dataclasses import dataclass
 
 from data_forge.context.models import Table, PipelineConfig
 from data_forge.watermark.models import Watermark
-from data_forge.util.util import build_columns
 
 
 @dataclass
@@ -12,6 +11,10 @@ class QueryBuilder:
     schema_name: str
     run_datetime: datetime
     pipeline_config: PipelineConfig
+
+    @staticmethod
+    def build_columns(column_names: list[str]):
+        return ", ".join(column_names)
 
     @staticmethod
     def build_placeholder(number: int) -> list[Placeholder]:
@@ -55,7 +58,8 @@ class QueryBuilder:
             SQL(', ').join(value_placeholders)
         ).as_bytes()
 
-    def select_all_with_metadata_after_watermark(self, table: Table, watermark: Watermark, format_query: bool = False) -> bytes:
+    def select_all_with_metadata_after_watermark(self, table: Table, watermark: Watermark,
+                                                 format_query: bool = False) -> bytes:
         if format_query:
             return SQL("""
                        SELECT
@@ -103,7 +107,7 @@ class QueryBuilder:
         ).as_bytes()
 
     def import_csv(self, table: Table, file_path: str) -> str:
-        columns_str = build_columns(table.column_names)
+        columns_str = self.build_columns(table.column_names)
         return f"""
             INSERT INTO {self.schema_name}.{table.name.lower()} ({columns_str}, dw_run_timestamp) 
             SELECT {columns_str}, '{self.run_datetime}'::TIMESTAMP AS dw_run_timestamp 
@@ -220,9 +224,9 @@ class QueryBuilder:
 
         return SQL(
             """
-            CREATE TABLE {}.{} (
-                {}
-                {}
+            CREATE TABLE {}.{}
+            ({}
+            {}
             )
             """
         ).format(
@@ -276,7 +280,6 @@ class QueryBuilder:
             Identifier(self.pipeline_config.watermark_table_schema),
             Identifier(self.pipeline_config.watermark_table_name)
         ).as_bytes()
-
 
     def select_watermark_query(self, table_name: str) -> bytes:
         return SQL("SELECT * FROM {}.{} WHERE table_name = {}").format(

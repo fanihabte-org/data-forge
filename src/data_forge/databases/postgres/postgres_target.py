@@ -2,25 +2,20 @@ from dataclasses import dataclass
 
 from duckdb import connect as duckdb_connection
 from psycopg import Connection
-from psycopg.rows import class_row
 
-from data_forge.context.context import Catalog
-from data_forge.context.models import Table, Column
+from data_forge.context.service import Catalog
+from data_forge.context.models import Table
 
 from data_forge.contracts.target_interface import TargetInterface
 from data_forge.databases.postgres.postgres_base import PostgresDB
 from data_forge.stroage.file_storage import FileStorage
-from data_forge.databases.query_builder import QueryBuilder
-from data_forge.validator.models import TableInfo, TableDetail
 from data_forge.watermark.models import Watermark
 from data_forge.watermark.repository_interface import WatermarkRepositoryInterface
 
 
 @dataclass
 class TargetPostgresDB(PostgresDB, TargetInterface):
-    query_builder: QueryBuilder
     catalog: Catalog
-    chunk_size: int
     file_storage: FileStorage
     watermark_repository: WatermarkRepositoryInterface
 
@@ -49,19 +44,6 @@ class TargetPostgresDB(PostgresDB, TargetInterface):
 
     def create_table(self, conn: Connection, table: Table):
         ...
-
-    def fetch_table_detail(self, conn: Connection, table: Table) -> TableDetail:
-        with conn.cursor(row_factory=class_row(TableInfo)) as cur:
-            table_info: TableInfo = cur.execute(self.query_builder.select_info(table=table)).fetchone()
-
-        with conn.cursor(row_factory=class_row(Column)) as cur:
-            current_cols = cur.execute(self.query_builder.select_columns_info(table=table)).fetchall()
-
-        return TableDetail(
-            table=table,
-            info=table_info,
-            columns=current_cols
-        )
 
     def fetch_watermark(self, conn: Connection, table: Table) -> Watermark | None:
         return self.watermark_repository.fetch_by_table(table=table, conn=conn)

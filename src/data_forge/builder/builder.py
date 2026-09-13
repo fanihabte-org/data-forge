@@ -3,25 +3,24 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from data_forge.analyzer.analyzer import Analyzer
-from data_forge.analyzer.factory import AnalyzerFactory
+from data_forge.analyzer.service import Analyzer
 from data_forge.databases.postgres.postgres_target import TargetPostgresDB
 from data_forge.databases.query_builder import QueryBuilder
-from data_forge.planner.factory import PlannerFactory
+from data_forge.planner.builder import PlanBuilder
 from data_forge.resolver.resolver import Resolver
 from data_forge.salesforce.auth import Auth
 
-from data_forge.context.context import Context
+from data_forge.context.service import Context
 from data_forge.pipeline.pipeline import Pipeline
 
 from data_forge.databases.postgres.postgres_source import SourcePostgresDB
+from data_forge.validator.validations import TableValidation
 from data_forge.watermark.pg_wm_repository import PostgresWatermarkRepository
 
 from data_forge.salesforce.salesforce import SalesForce
 from data_forge.stroage.file_storage import FileStorage
 from data_forge.salesforce.request import SalesForceRequest
 from data_forge.planner.service import Planner
-from data_forge.validator.factory import ValidatorFactory
 from data_forge.validator.service import Validator
 
 
@@ -47,7 +46,6 @@ class Builder:
             db_engine=self.engine(db_name=target_db_name),
             query_builder=self.query_builder(source_name=source_name),
             catalog=self.context().get_catalog(source=source_name),
-            chunk_size=self.context().pipeline_config.chunk_size,
             file_storage=self.file_storage(),
             watermark_repository=self.watermark_repository(source_name=source_name)
         )
@@ -119,7 +117,7 @@ class Builder:
     def planner(self, source_name: str, source_db_name: str, target_db_name: str):
         return Planner(
             source_name=source_name,
-            planner_factory=self.planner_factory(
+            plan_builder=self.plan_builder(
                 source_name=source_name,
                 source_db_name=source_db_name,
                 target_db_name=target_db_name
@@ -128,36 +126,25 @@ class Builder:
 
     def analyzer(self, source_name: str, source_db_name: str, target_db_name: str):
         return Analyzer(
-            analyzer_factory=self.analyzer_factory(
-                source_name=source_name,
-                target_db_name=target_db_name,
-                source_db_name=source_db_name
-            )
-        )
-
-    def planner_factory(self, source_name: str, source_db_name: str, target_db_name: str):
-        return PlannerFactory(
             source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
             target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
 
-    def analyzer_factory(self, source_name: str, source_db_name: str, target_db_name: str):
-        return AnalyzerFactory(
+    def plan_builder(self, source_name: str, source_db_name: str, target_db_name: str):
+        return PlanBuilder(
             source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
             target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
 
     def validator(self, source_name: str, source_db_name: str, target_db_name: str):
         return Validator(
-            validator_factory=self.validator_factory(
-                source_name=source_name,
-                source_db_name=source_db_name,
-                target_db_name=target_db_name
-            )
+            source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
+            target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
+            table_validation=self.table_validation(source_name=source_name, source_db_name=source_db_name, target_db_name=target_db_name)
         )
 
-    def validator_factory(self, source_name: str, source_db_name: str, target_db_name: str):
-        return ValidatorFactory(
+    def table_validation(self, source_name: str, source_db_name: str, target_db_name: str):
+        return TableValidation(
             source=self.source_postgres_db(source_name=source_name, source_db_name=source_db_name),
             target=self.target_postgres_db(source_name=source_name, target_db_name=target_db_name),
         )
