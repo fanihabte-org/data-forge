@@ -29,7 +29,7 @@ jobs:
 
   deploy:
     name: Deploy to Prod
-    runs-on: [self-hosted, x64, linux]
+    runs-on: [ self-hosted, x64, linux ]
     timeout-minutes: 10
     needs: build-and-test
 
@@ -42,5 +42,4 @@ jobs:
           PROJECT_DIR: ${{ secrets.PROJECT_DIR }}
         run: |
           cd "$PROJECT_DIR"
-          git fetch origin main && git reset --hard origin/main
-          docker compose run data-forge uv run pytest
+          just deploy
